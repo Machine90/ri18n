@@ -4,6 +4,7 @@ public class I18nUtil {
 	public static enum Iso639Code {
 		ZH("zh"),
 		EN("en"),
+		BR("br")
 		;
 
 		private String code;
@@ -37,7 +38,16 @@ public class I18nUtil {
 		return languageMapper.get(i18nKey);
 	}
 
-	public static java.util.List<SupportLanguage> supportLanguages = new java.util.ArrayList<>();
+	public static String getByLocale(Iso639Code locale, String key, Object... args) {
+		String i18nKey = buildI18nKey(locale, key);
+		String template = languageMapper.get(i18nKey);
+		if (template == null || template.isEmpty()) {
+			return null;
+		}
+		return template.formatted(args);
+	}
+
+	public static java.util.ArrayList<SupportLanguage> supportLanguages = new java.util.ArrayList<>();
 	static {
 		supportLanguages.add(new SupportLanguage(Iso639Code.EN, "English", "English"));
 		supportLanguages.add(new SupportLanguage(Iso639Code.ZH, "中文", "Chinese"));
@@ -45,12 +55,25 @@ public class I18nUtil {
 
 	public static final String TEST_CONTENT = "test.content";
 	public static final String TEST_TITLE = "test.title";
+	public static final String PLAYER_HEALTH = "player.health";
 
-	static final java.util.Map<String, String> languageMapper = new java.util.HashMap<>();
+	static final java.util.HashMap<String, String> languageMapper = new java.util.HashMap<>();
 	static {
 		languageMapper.put(buildI18nKey(Iso639Code.EN, TEST_TITLE), "hello");
+		languageMapper.put(buildI18nKey(Iso639Code.BR, TEST_TITLE), "Hola");
 		languageMapper.put(buildI18nKey(Iso639Code.ZH, TEST_TITLE), "你好");
 		languageMapper.put(buildI18nKey(Iso639Code.EN, TEST_CONTENT), "this is content");
 		languageMapper.put(buildI18nKey(Iso639Code.ZH, TEST_CONTENT), "这是内容");
+
+		languageMapper.put(buildI18nKey(Iso639Code.EN, PLAYER_HEALTH), "Health");
+		languageMapper.put(buildI18nKey(Iso639Code.ZH, PLAYER_HEALTH), "血条");
+	}
+
+	public static void main(String[] args) {
+		String health = I18nUtil.getByLocale(Iso639Code.EN, PLAYER_HEALTH);
+		System.out.println(health);
+
+		String healthzh = I18nUtil.getByLocale(Iso639Code.ZH, PLAYER_HEALTH);
+		System.out.println(healthzh);
 	}
 }
