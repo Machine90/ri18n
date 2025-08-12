@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use clap::Parser;
+
 use crate::{
     args::Args,
     polyglot::{
@@ -20,7 +22,7 @@ pub mod args;
 pub mod polyglot;
 
 fn main() {
-    let args = Args::new();
+    let args = Args::parse();
 
     let language_map = Field::new(
         true,

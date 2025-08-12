@@ -3,8 +3,7 @@ public class I18nUtil {
 
 	public static enum Iso639Code {
 		ZH("zh"),
-		EN("en"),
-		BR("br")
+		EN("en")
 		;
 
 		private String code;
@@ -60,20 +59,10 @@ public class I18nUtil {
 	static final java.util.HashMap<String, String> languageMapper = new java.util.HashMap<>();
 	static {
 		languageMapper.put(buildI18nKey(Iso639Code.EN, TEST_TITLE), "hello");
-		languageMapper.put(buildI18nKey(Iso639Code.BR, TEST_TITLE), "Hola");
 		languageMapper.put(buildI18nKey(Iso639Code.ZH, TEST_TITLE), "你好");
 		languageMapper.put(buildI18nKey(Iso639Code.EN, TEST_CONTENT), "this is content");
 		languageMapper.put(buildI18nKey(Iso639Code.ZH, TEST_CONTENT), "这是内容");
-
 		languageMapper.put(buildI18nKey(Iso639Code.EN, PLAYER_HEALTH), "Health");
 		languageMapper.put(buildI18nKey(Iso639Code.ZH, PLAYER_HEALTH), "血条");
-	}
-
-	public static void main(String[] args) {
-		String health = I18nUtil.getByLocale(Iso639Code.EN, PLAYER_HEALTH);
-		System.out.println(health);
-
-		String healthzh = I18nUtil.getByLocale(Iso639Code.ZH, PLAYER_HEALTH);
-		System.out.println(healthzh);
 	}
 }
