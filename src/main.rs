@@ -4,8 +4,13 @@ use clap::Parser;
 
 use crate::{
     args::Args,
+    i18n_files_reader::I18nFileReader,
     polyglot::{
         common::{
+            constants::{
+                ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
+                INSTANCE_NAME_I18N_MAP, INSTANCE_NAME_LANGUAGE_LIST, STRUCT_NAME_SUPPORT_LANGUAGE,
+            },
             data_struct::DataStruct,
             field::Field,
             i18n_code_generator::I18nCodeGenerator,
@@ -19,24 +24,25 @@ use crate::{
 };
 
 pub mod args;
+pub mod i18n_files_reader;
 pub mod polyglot;
 
 fn main() {
     let args = Args::parse();
 
-    let language_map = Field {
-        is_public: true,
+    let i18n_map = Field {
+        is_public: false,
         is_static: true,
         is_final: true,
         r#type: Types::HashMap(Box::new(Types::String), Box::new(Types::String)),
-        name: "map".to_string(),
+        name: INSTANCE_NAME_I18N_MAP.to_string(),
     };
     let language_list = Field {
         is_public: true,
         is_static: true,
         is_final: true,
-        r#type: Types::List(Box::new(Types::Custom("SupportLanguage"))),
-        name: "list".to_string(),
+        r#type: Types::List(Box::new(Types::Custom(STRUCT_NAME_SUPPORT_LANGUAGE))),
+        name: INSTANCE_NAME_LANGUAGE_LIST.to_string(),
     };
     let build_i18n_key_method = Method::new_method_build_i18n_key(None, None, None, 1);
     let package = args
@@ -49,13 +55,13 @@ fn main() {
         name: args.name.clone(),
         struct_support_language_list: DataStruct {
             is_static: true,
-            name: "SupportLanguage".to_string(),
+            name: STRUCT_NAME_SUPPORT_LANGUAGE.to_string(),
             base_ident: 1,
             fields: BTreeSet::from_iter([
-                Field::public(Types::String, "iso639_code"),
-                Field::public(Types::String, "cn_name"),
-                Field::public(Types::String, "en_name"),
-                Field::public(Types::String, "native_name"),
+                Field::public(Types::String, ARG_NAME_ISO639),
+                Field::public(Types::String, FIELD_NAME_CN_NAME),
+                Field::public(Types::String, FIELD_NAME_EN_NAME),
+                Field::public(Types::String, FIELD_NAME_NATIVE_NAME),
             ]),
             with_constructor: true,
             ..Default::default()
@@ -63,7 +69,7 @@ fn main() {
         fn_get_by_locale: Method::new_method_get_by_locale(
             None,
             &build_i18n_key_method.name,
-            language_map.name.as_str(),
+            i18n_map.name.as_str(),
             None,
             None,
             1,
@@ -71,7 +77,7 @@ fn main() {
         fn_get_by_locale_with_args: Method::new_method_get_by_locale_with_args(
             None,
             &build_i18n_key_method.name,
-            language_map.name.as_str(),
+            i18n_map.name.as_str(),
             None,
             None,
             None,
@@ -83,14 +89,14 @@ fn main() {
             left_hand: language_list,
             op: Operation::Assign,
             right_hand: RightHand::Construct(Construct {
-                tp: Types::List(Box::new(Types::Custom("SupportLanguage"))),
+                tp: Types::List(Box::new(Types::Custom(STRUCT_NAME_SUPPORT_LANGUAGE))),
                 args: vec![],
             }),
         },
         call_insert_support_language_list: Default::default(),
         const_i18n_keys: [].into(),
         stat_build_i18n_map: Statement {
-            left_hand: language_map,
+            left_hand: i18n_map,
             op: Operation::Assign,
             right_hand: RightHand::Construct(Construct {
                 tp: Types::HashMap(Box::new(Types::String), Box::new(Types::String)),
@@ -99,10 +105,17 @@ fn main() {
         },
         call_insert_i18n_map: Default::default(),
     };
-    i18n_gen
-        .insert_i18n_entry("en", "test", "test")
-        .insert_i18n_entry("zh", "test", "测试")
-        .insert_i18n_entry("ja", "test", "测试");
+
+    let src_dir = args.src_dir.to_path_buf();
+    let mut i18n_files_reader = I18nFileReader {
+        src_dir,
+        writer: |iso639_code, i18n_key, value| {
+            i18n_gen.insert_i18n_entry(iso639_code, i18n_key, value);
+        },
+    };
+    if let Err(e) = i18n_files_reader.run() {
+        eprintln!("Failed to read file, error: {e:?}");
+    }
 
     let (file_name, code) = match args.language {
         args::Target::Java => (format!("{}.java", args.name), i18n_gen.into_java()),

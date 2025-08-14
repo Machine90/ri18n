@@ -1,0 +1,10 @@
+[animal]
+cat.name = "老虎"
+cat.desc = "这是一只老虎，它的名字叫{s}，年龄{u32}岁，体重{f32}公斤"
+cat.number = { single = "有{u32}只老虎", plural = "共有{u32}只老虎" }
+
+[human.man]
+name = "鲍勃"
+
+[human.woman]
+name = "爱丽丝"
