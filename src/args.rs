@@ -10,13 +10,13 @@ pub enum Target {
 #[derive(Debug, Parser)]
 pub struct Args {
     #[arg(short, long, env)]
-    pub i18n_dir: PathBuf,
+    pub src_dir: PathBuf,
+    #[arg(long, env, default_value = "./")]
+    pub target_dir: PathBuf,
     #[command(subcommand)]
-    pub target_language: Target,
+    pub language: Target,
     #[arg(long, env)]
-    pub target_basedir: PathBuf,
-    #[arg(long, env)]
-    pub target_package: Option<String>,
-    #[arg(long, env)]
-    pub target_name: String,
+    pub package: Option<String>,
+    #[arg(long, env, default_value = "Ri18n")]
+    pub name: String,
 }

@@ -32,31 +32,3 @@ impl FromStr for Package {
         Ok(Self { package_path })
     }
 }
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Import {
-    pub import_path: PathBuf,
-}
-
-impl FromStr for Import {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let import_path = if s.contains(".") {
-            s.split("\\.")
-                .map(|seg| Path::new(seg.trim()).to_path_buf())
-                .collect::<PathBuf>()
-        } else if s.contains("/") {
-            s.split("/")
-                .map(|seg| Path::new(seg.trim()).to_path_buf())
-                .collect::<PathBuf>()
-        } else if s.contains("::") {
-            s.split("::")
-                .map(|seg| Path::new(seg.trim()).to_path_buf())
-                .collect::<PathBuf>()
-        } else {
-            return Err(anyhow!("{s} as import is not support"));
-        };
-        Ok(Self { import_path })
-    }
-}
