@@ -1,10 +1,8 @@
-pub mod code_lines;
-pub mod constants;
 pub mod data_struct;
 pub mod field;
 pub mod i18n_code_generator;
 pub mod i18n_method;
-pub mod iso639_codes;
+pub mod i18n_switch;
 pub mod package;
 pub mod statement;
 pub mod used_types;
@@ -41,11 +39,11 @@ pub enum Format {
 /// * {hex} => Format::Hex
 /// * {exp} => Format::Exponent
 #[derive(Debug, Clone)]
-pub struct FormattedContent {
+pub struct FormatContent {
     pub i18n_content: String,
 }
 
-impl FormattedContent {
+impl FormatContent {
     pub fn replace(&self, matcher: fn(Format) -> &'static str) -> String {
         REGEX
             .replace_all(&self.i18n_content, |caps: &regex::Captures<'_>| {
@@ -84,7 +82,7 @@ mod tests {
     #[test]
     fn test() {
         let expected = "User name is %s age is %d weight is %f";
-        let fmt = FormattedContent {
+        let fmt = FormatContent {
             i18n_content: "User name is {str} age is {u32} weight is {f32}".to_string(),
         };
         let c = fmt.replace(java_matcher);

@@ -1,11 +1,11 @@
+use crate::common::code_lines::CodeLines;
+use crate::common::i18n_entry::I18nEntry;
+use crate::polyglot::common::i18n_switch::{I18nSwitch, LanguageMatcher};
 use crate::polyglot::{
     common::{
-        code_lines::CodeLines,
         data_struct::DataStruct,
         field::Field,
-        i18n_code_generator::{
-            I18nCodeGenerator, InsertI18nMapCall, InsertSupportLanguageListCall,
-        },
+        i18n_code_generator::{I18nCodeGenerator, InsertSupportLanguageListCall},
         i18n_method::{I18nMethodContent, I18nMethodType, Method, MethodCall},
         java_matcher,
         package::Package,
@@ -14,7 +14,6 @@ use crate::polyglot::{
     },
     java::{IntoJava, IntoJavaConstruct, IntoJavaConstructor},
 };
-
 const TERMINATOR: Option<&'static str> = Some(";");
 
 impl IntoJava for Package {
@@ -122,46 +121,25 @@ impl IntoJava for I18nMethodContent {
         let Self { tp, base_ident } = self;
         let mut lines = CodeLines::new(*base_ident, None);
         match tp {
-            I18nMethodType::BuildI18nKey {
-                arg_name_iso639,
-                arg_name_i18n_key,
-            } => {
+            I18nMethodType::GetByLocale { language_matcher } => {
                 lines
-                    .push_without_terminator(format!(
-                        "if ({arg_name_iso639} == null || {arg_name_i18n_key} == null || {arg_name_i18n_key}.isEmpty()) {{"
-                    ))
-                    .push(format!("\treturn null"))
-                    .push_without_terminator(format!("}}"))
-                    .push(format!("return String.format(\"%s.%s\", {arg_name_iso639}, {arg_name_i18n_key})"));
-            }
-            I18nMethodType::GetByLocale {
-                method_name_build_i18n_key,
-                arg_name_iso639,
-                arg_name_i18n_key,
-                instance_name_language_map,
-            } => {
-                let full_key = format!("{}{}", arg_name_i18n_key, "Full");
-                lines
-                    .push(format!(
-                        "String {full_key} = {method_name_build_i18n_key}({arg_name_iso639}, {arg_name_i18n_key})"
-                    ))
-                    .push(format!("return {instance_name_language_map}.get({full_key})"));
+                    .extend(language_matcher.into_java())
+                    .push(format!("return null"));
             }
             I18nMethodType::GetByLocaleWithArgs {
-                method_name_build_i18n_key,
                 arg_name_iso639,
                 arg_name_i18n_key,
                 arg_name_args,
-                instance_name_language_map,
+                fn_name_get_locale,
             } => {
-                let full_key = format!("{}{}", arg_name_i18n_key, "Full");
                 let template = format!("{}{}", arg_name_i18n_key, "Template");
                 lines
                     .push(format!(
-                        "String {full_key} = {method_name_build_i18n_key}({arg_name_iso639}, {arg_name_i18n_key})"
+                        "String {template} = {fn_name_get_locale}({arg_name_iso639}, {arg_name_i18n_key})"
                     ))
-                    .push(format!("String {template} = {instance_name_language_map}.get({full_key})"))
-                    .push_without_terminator(format!("if ({template} == null || {template}.isEmpty()) {{"))
+                    .push_without_terminator(format!(
+                        "if ({template} == null || {template}.isEmpty()) {{"
+                    ))
                     .push(format!("\treturn null"))
                     .push_without_terminator(format!("}}"))
                     .push(format!("return {template}.formatted({arg_name_args})"));
@@ -239,6 +217,44 @@ impl IntoJavaConstructor for DataStruct {
     }
 }
 
+impl IntoJava for I18nSwitch {
+    fn into_java(&self) -> String {
+        let Self {
+            arg_name_i18n_key,
+            entries,
+            base_ident,
+        } = self;
+
+        let mut lines = CodeLines::new(*base_ident, TERMINATOR);
+        lines.push_without_terminator(format!("switch ({arg_name_i18n_key}) {{"));
+        for I18nEntry { key, value } in entries {
+            lines
+                .push_without_terminator(format!("\tcase \"{key}\":"))
+                .push(format!("\t\treturn \"{}\"", value.replace(java_matcher)));
+        }
+        lines.push_without_terminator("}".to_string()).generate()
+    }
+}
+
+impl IntoJava for LanguageMatcher {
+    fn into_java(&self) -> String {
+        let Self {
+            language_to_entries,
+            base_ident,
+            arg_name_iso639,
+            ..
+        } = self;
+
+        let mut lines = CodeLines::new(*base_ident, TERMINATOR);
+        for (lang, switch) in language_to_entries {
+            lines.push_without_terminator(format!("if ({arg_name_iso639} == \"{lang}\") {{"));
+            lines.extend(switch.into_java());
+            lines.push_without_terminator("}".to_string());
+        }
+        lines.generate()
+    }
+}
+
 impl IntoJava for Method {
     fn into_java(&self) -> String {
         let Self {
@@ -294,15 +310,12 @@ impl IntoJava for I18nCodeGenerator {
             package,
             name,
             struct_support_language_list,
-            fn_build_i18n_key,
             fn_get_by_locale,
             fn_get_by_locale_with_args,
             const_support_languages,
             stat_build_support_language_list,
             call_insert_support_language_list,
             const_i18n_keys,
-            stat_build_i18n_map,
-            call_insert_i18n_map,
         } = self;
         let mut lines = CodeLines::new(0, TERMINATOR);
         if let Some(pkg) = package {
@@ -316,14 +329,6 @@ impl IntoJava for I18nCodeGenerator {
         // support language struct
         lines
             .extend(struct_support_language_list.into_java())
-            .next_line_if_true(true);
-
-        lines
-            .extend(fn_build_i18n_key.into_java())
-            .next_line_if_true(true);
-
-        lines
-            .extend(fn_get_by_locale.into_java())
             .next_line_if_true(true);
 
         lines
@@ -387,37 +392,8 @@ impl IntoJava for I18nCodeGenerator {
         }
         lines.extend(keys_class.into_java()).next_line_if_true(true);
 
-        lines.push(format!("\t{}", stat_build_i18n_map.into_java()));
-        lines.push_without_terminator("\tstatic {".to_string());
-        // put i18n map
-        let instance_language_map = stat_build_i18n_map.left_hand.name.as_str();
-        for InsertI18nMapCall {
-            language_iso639_code,
-            i18n_key,
-            i18n_content,
-        } in call_insert_i18n_map.iter()
-        {
-            let call_build_i18n_key = MethodCall {
-                method_name: fn_build_i18n_key.name.clone(),
-                args: vec![
-                    format!("\"{language_iso639_code}\""),
-                    format!("\"{i18n_key}\""),
-                ],
-                ..Default::default()
-            };
-            let i18n_content = i18n_content.replace(java_matcher);
-            let call_put_i18n_map = MethodCall {
-                instance: Some(instance_language_map.to_string()),
-                method_name: "put".to_string(),
-                args: vec![
-                    call_build_i18n_key.into_java(),
-                    format!("\"{}\"", i18n_content),
-                ],
-            };
-            lines.push(format!("\t\t{}", call_put_i18n_map.into_java()));
-        }
         lines
-            .push_without_terminator("\t}".to_string())
+            .extend(fn_get_by_locale.into_java())
             .next_line_if_true(true);
 
         lines.push_without_terminator("}".to_owned());
@@ -463,13 +439,6 @@ mod tests {
 
     #[test]
     fn test() {
-        let language_map = Field {
-            is_public: true,
-            is_static: true,
-            is_final: true,
-            r#type: Types::HashMap(Box::new(Types::String), Box::new(Types::String)),
-            name: "map".to_string(),
-        };
         let language_list = Field {
             is_public: true,
             is_static: true,
@@ -477,7 +446,6 @@ mod tests {
             r#type: Types::List(Box::new(Types::Custom("SupportLanguage"))),
             name: "list".to_string(),
         };
-        let build_i18n_key_method = Method::new_method_build_i18n_key(None, None, None, 1);
         let mut i18n_gen = I18nCodeGenerator {
             package: None,
             name: "Ri18n".to_string(),
@@ -494,24 +462,10 @@ mod tests {
                 with_constructor: true,
                 ..Default::default()
             },
-            fn_get_by_locale: Method::new_method_get_by_locale(
-                None,
-                &build_i18n_key_method.name,
-                language_map.name.as_str(),
-                None,
-                None,
-                1,
-            ),
+            fn_get_by_locale: Method::new_method_get_by_locale(None, None, 1),
             fn_get_by_locale_with_args: Method::new_method_get_by_locale_with_args(
-                None,
-                &build_i18n_key_method.name,
-                language_map.name.as_str(),
-                None,
-                None,
-                None,
-                1,
+                None, None, None, 1,
             ),
-            fn_build_i18n_key: build_i18n_key_method,
             const_support_languages: [].into(),
             stat_build_support_language_list: Statement {
                 left_hand: language_list,
@@ -523,15 +477,6 @@ mod tests {
             },
             call_insert_support_language_list: Default::default(),
             const_i18n_keys: [].into(),
-            stat_build_i18n_map: Statement {
-                left_hand: language_map,
-                op: Operation::Assign,
-                right_hand: RightHand::Construct(Construct {
-                    tp: Types::HashMap(Box::new(Types::String), Box::new(Types::String)),
-                    args: vec![],
-                }),
-            },
-            call_insert_i18n_map: Default::default(),
         };
         i18n_gen
             .insert_i18n_entry("en", "test", "test")

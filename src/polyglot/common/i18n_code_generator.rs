@@ -1,14 +1,15 @@
 use std::collections::BTreeSet;
 
-use crate::polyglot::common::{
-    FormattedContent,
-    data_struct::DataStruct,
-    field::Field,
-    i18n_method::Method,
-    iso639_codes::{Iso639Entry, iso639_map},
-    package::Package,
-    statement::{Operation, RightHand, Statement},
-    used_types::Types,
+use crate::{
+    common::iso639_codes::{Iso639Entry, iso639_map},
+    polyglot::common::{
+        data_struct::DataStruct,
+        field::Field,
+        i18n_method::Method,
+        package::Package,
+        statement::{Operation, RightHand, Statement},
+        used_types::Types,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -38,29 +39,19 @@ impl Ord for InsertSupportLanguageListCall {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct InsertI18nMapCall {
-    pub language_iso639_code: String,
-    pub i18n_key: String,
-
-    pub i18n_content: FormattedContent,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct I18nCodeGenerator {
     pub package: Option<Package>,
 
     pub name: String,
     pub struct_support_language_list: DataStruct,
-    pub fn_build_i18n_key: Method,
-    pub fn_get_by_locale: Method,
+
     pub fn_get_by_locale_with_args: Method,
     pub const_support_languages: BTreeSet<Statement>,
     pub stat_build_support_language_list: Statement,
     pub call_insert_support_language_list: BTreeSet<InsertSupportLanguageListCall>,
     pub const_i18n_keys: BTreeSet<Statement>,
-    pub stat_build_i18n_map: Statement,
-    pub call_insert_i18n_map: Vec<InsertI18nMapCall>,
+    pub fn_get_by_locale: Method,
 }
 
 impl I18nCodeGenerator {
@@ -80,15 +71,9 @@ impl I18nCodeGenerator {
             language_iso639_code: language_iso639_code.to_string(),
             iso639_entry,
         };
+        self.fn_get_by_locale
+            .insert(language_iso639_code, key, value);
         self.call_insert_support_language_list.insert(language);
-        let i18n_entry = InsertI18nMapCall {
-            language_iso639_code: language_iso639_code.to_string(),
-            i18n_key: key.to_string(),
-            i18n_content: FormattedContent {
-                i18n_content: value.to_string(),
-            },
-        };
-        self.call_insert_i18n_map.push(i18n_entry);
 
         let const_i18n_key = Statement {
             left_hand: Field {

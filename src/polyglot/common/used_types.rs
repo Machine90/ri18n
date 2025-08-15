@@ -1,5 +1,6 @@
 use crate::polyglot::common::field::Field;
 
+#[allow(unused)]
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub enum Types {
     #[default]
