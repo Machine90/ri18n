@@ -1,0 +1,4 @@
+application.business.title="This is the title"
+application.business.content="This is the content"
+application.business.language.name="Chinese"
+player.health="Health"

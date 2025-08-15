@@ -1,0 +1,10 @@
+[animal]
+cat.name = "نمر"
+cat.desc = "هذا نمر، اسمه {s}، عمره {u32} سنة، ووزنه {f32} كيلوغرام"
+cat.number = { single = "هناك {u32} نمر", plural = "هناك {u32} نمور في المجموع" }
+
+[human.man]
+name = "بوب"
+
+[human.woman]
+name = "أليس"

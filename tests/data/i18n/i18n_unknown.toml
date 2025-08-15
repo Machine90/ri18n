@@ -1,0 +1,10 @@
+[animal]
+cat.name = "Tigre"
+cat.desc = "Este es un tigre, se llama {s}, tiene {u32} años y pesa {f32} kilos"
+cat.number = { single = "Hay {u32} tigre", plural = "Hay {u32} tigres" }
+
+[human.man]
+name = "Roberto" # "Bob"的常见西班牙语对应名
+
+[human.woman]
+name = "Alicia" # "Alice"的西班牙语标准译名

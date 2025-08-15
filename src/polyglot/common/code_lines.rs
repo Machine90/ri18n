@@ -1,0 +1,46 @@
+const IDENT: &str = "\t";
+
+#[derive(Default)]
+pub(crate) struct CodeLines {
+    ident_code: String,
+    lines: Vec<String>,
+    end_with: &'static str,
+}
+
+impl CodeLines {
+    pub fn new(ident: u8, end_with: Option<&'static str>) -> Self {
+        let ident_code = IDENT.repeat(ident as usize);
+        Self {
+            ident_code,
+            lines: Default::default(),
+            end_with: end_with.unwrap_or(";"),
+        }
+    }
+
+    pub fn next_line_if_true(&mut self, advance: bool) -> &mut Self {
+        if advance {
+            self.lines.push(format!(""));
+        }
+        self
+    }
+
+    pub fn push(&mut self, line: String) -> &mut Self {
+        self.lines
+            .push(format!("{}{}{}", self.ident_code, line, self.end_with));
+        self
+    }
+
+    pub fn push_without_terminator(&mut self, line: String) -> &mut Self {
+        self.lines.push(format!("{}{}", self.ident_code, line));
+        self
+    }
+
+    pub fn extend(&mut self, codes: String) -> &mut Self {
+        self.lines.push(format!("{}", codes));
+        self
+    }
+
+    pub fn generate(&self) -> String {
+        self.lines.join("\n")
+    }
+}
