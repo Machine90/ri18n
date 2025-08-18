@@ -11,12 +11,12 @@ pub enum Target {
 pub struct Args {
     #[arg(short, long, env)]
     pub src_dir: PathBuf,
-    #[arg(long, env, default_value = "./")]
+    #[arg(short, long, env, default_value = "./")]
     pub target_dir: PathBuf,
+    #[arg(short, long, env)]
+    pub package: Option<String>,
+    #[arg(short, long, env, default_value = "Ri18n")]
+    pub name: String,
     #[command(subcommand)]
     pub language: Target,
-    #[arg(long, env)]
-    pub package: Option<String>,
-    #[arg(long, env, default_value = "Ri18n")]
-    pub name: String,
 }

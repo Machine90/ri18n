@@ -6,9 +6,11 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use hashlink::LinkedHashMap;
 use serde_json::{Map, Value};
 use toml::Table;
 use whatlang::{Detector, Lang};
+use yaml_rust2::{Yaml, yaml};
 
 use crate::{
     common::{i18n_entry::I18nEntry, iso639_codes::whatlang_to_iso639},
@@ -51,9 +53,9 @@ impl<W: FnMut(&str, &str, &str)> I18nFileReader<W> {
             let mut lang = get_language_hint_from_filename(&file.get_path()).ok();
             let entries = match file {
                 InputFile::Json(path_buf) => read_i18n_entries_from_json(path_buf)?,
-                InputFile::Yaml(path_buf) => todo!(),
+                InputFile::Yaml(path_buf) => read_i18n_entries_from_yaml(path_buf)?,
                 InputFile::Toml(path_buf) => read_i18n_entries_from_toml(path_buf)?,
-                InputFile::Properties(path_buf) => todo!(),
+                InputFile::Properties(path_buf) => read_i18n_entries_from_properties(path_buf)?,
             };
             lang = lang.or(detect_language(&entries, &detector));
             let iso639_code = match lang {
@@ -225,6 +227,72 @@ fn read_i18n_entries_from_json(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
             })
             .collect::<HashSet<_>>();
     }
+    Ok(entries)
+}
+
+fn read_i18n_entries_from_properties(file_path: PathBuf) -> Result<HashSet<I18nEntry>> {
+    let file = std::fs::OpenOptions::new().read(true).open(&file_path)?;
+    let map = java_properties::read(file)?;
+    let entries = map
+        .into_iter()
+        .map(|(key, value)| I18nEntry {
+            key,
+            value: FormatContent {
+                i18n_content: value,
+            },
+        })
+        .collect::<HashSet<_>>();
+    Ok(entries)
+}
+
+fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>> {
+    let file = std::fs::OpenOptions::new().read(true).open(&file_path)?;
+    let mut f = yaml::YamlDecoder::read(file);
+
+    fn fold_yaml_map(prev_key: &str, object: &LinkedHashMap<Yaml, Yaml>) -> Vec<(String, String)> {
+        let entries = object
+            .iter()
+            .filter_map(|(key, value)| {
+                let new_key = if !prev_key.is_empty() {
+                    let key = key.as_str()?;
+                    format!("{prev_key}.{key}")
+                } else {
+                    key.as_str()?.to_string()
+                };
+                if let Some(table) = value.as_hash() {
+                    let entries = fold_yaml_map(&new_key, table);
+                    Some(entries)
+                } else if let Some(value) = value.as_str() {
+                    Some(vec![(new_key, value.to_string())])
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        entries
+    }
+
+    let yaml = f
+        .decode()
+        .expect(&format!("Failed to decode yaml file {file_path:?}"));
+    let entries = yaml
+        .into_iter()
+        .filter_map(|v| {
+            let v = v.as_hash()?;
+            let entries = fold_yaml_map("", v)
+                .into_iter()
+                .map(|(key, value)| I18nEntry {
+                    key,
+                    value: FormatContent {
+                        i18n_content: value.to_string(),
+                    },
+                })
+                .collect::<HashSet<_>>();
+            Some(entries)
+        })
+        .flatten()
+        .collect::<HashSet<_>>();
     Ok(entries)
 }
 

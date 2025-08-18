@@ -1,4 +1,4 @@
-pub(crate) mod impl_4j;
+pub(crate) mod impl_java;
 
 pub trait IntoJava {
     fn into_java(&self) -> String;
