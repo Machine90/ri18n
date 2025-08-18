@@ -4,13 +4,14 @@ use clap::Parser;
 
 use crate::{
     args::Args,
+    common::constants::{
+        ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
+        INSTANCE_NAME_LANGUAGE_LIST, STRUCT_NAME_SUPPORT_LANGUAGE,
+    },
     i18n_files_reader::I18nFileReader,
     polyglot::{
         common::{
-            constants::{
-                ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
-                INSTANCE_NAME_I18N_MAP, INSTANCE_NAME_LANGUAGE_LIST, STRUCT_NAME_SUPPORT_LANGUAGE,
-            },
+            Naming,
             data_struct::DataStruct,
             field::Field,
             i18n_code_generator::I18nCodeGenerator,
@@ -24,27 +25,20 @@ use crate::{
 };
 
 pub mod args;
+pub mod common;
 pub mod i18n_files_reader;
 pub mod polyglot;
 
 fn main() {
     let args = Args::parse();
 
-    let i18n_map = Field {
-        is_public: false,
-        is_static: true,
-        is_final: true,
-        r#type: Types::HashMap(Box::new(Types::String), Box::new(Types::String)),
-        name: INSTANCE_NAME_I18N_MAP.to_string(),
-    };
     let language_list = Field {
         is_public: true,
         is_static: true,
         is_final: true,
         r#type: Types::List(Box::new(Types::Custom(STRUCT_NAME_SUPPORT_LANGUAGE))),
-        name: INSTANCE_NAME_LANGUAGE_LIST.to_string(),
+        name: Naming::new(INSTANCE_NAME_LANGUAGE_LIST),
     };
-    let build_i18n_key_method = Method::new_method_build_i18n_key(None, None, None, 1);
     let package = args
         .package
         .map(|p| Package::from_str(&p))
@@ -66,24 +60,8 @@ fn main() {
             with_constructor: true,
             ..Default::default()
         },
-        fn_get_by_locale: Method::new_method_get_by_locale(
-            None,
-            &build_i18n_key_method.name,
-            i18n_map.name.as_str(),
-            None,
-            None,
-            1,
-        ),
-        fn_get_by_locale_with_args: Method::new_method_get_by_locale_with_args(
-            None,
-            &build_i18n_key_method.name,
-            i18n_map.name.as_str(),
-            None,
-            None,
-            None,
-            1,
-        ),
-        fn_build_i18n_key: build_i18n_key_method,
+        fn_get_by_locale: Method::new_method_get_by_locale(None, None, 1),
+        fn_get_by_locale_with_args: Method::new_method_get_by_locale_with_args(None, None, None, 1),
         const_support_languages: [].into(),
         stat_build_support_language_list: Statement {
             left_hand: language_list,
@@ -95,15 +73,6 @@ fn main() {
         },
         call_insert_support_language_list: Default::default(),
         const_i18n_keys: [].into(),
-        stat_build_i18n_map: Statement {
-            left_hand: i18n_map,
-            op: Operation::Assign,
-            right_hand: RightHand::Construct(Construct {
-                tp: Types::HashMap(Box::new(Types::String), Box::new(Types::String)),
-                args: vec![],
-            }),
-        },
-        call_insert_i18n_map: Default::default(),
     };
 
     let src_dir = args.src_dir.to_path_buf();

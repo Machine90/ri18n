@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::polyglot::common::used_types::Types;
+use crate::polyglot::common::{used_types::Types, Naming};
 
 #[derive(Debug, Clone, Default)]
 pub struct Field {
@@ -8,7 +8,7 @@ pub struct Field {
     pub is_static: bool,
     pub is_final: bool,
     pub r#type: Types,
-    pub name: String,
+    pub name: Naming,
 }
 
 #[allow(unused)]
@@ -17,7 +17,7 @@ impl Field {
         Self {
             is_public: true,
             r#type: tp,
-            name: name.to_string(),
+            name: Naming::new(name),
             ..Default::default()
         }
     }
@@ -25,7 +25,7 @@ impl Field {
     pub fn private(tp: Types, name: &str) -> Self {
         Self {
             r#type: tp,
-            name: name.to_string(),
+            name: Naming::new(name),
             ..Default::default()
         }
     }
