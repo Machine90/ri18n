@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::{
     common::iso639_codes::{Iso639Entry, iso639_map},
     polyglot::common::{
+        Naming,
         data_struct::DataStruct,
         field::Field,
         i18n_method::Method,
@@ -42,10 +43,8 @@ impl Ord for InsertSupportLanguageListCall {
 #[derive(Debug)]
 pub struct I18nCodeGenerator {
     pub package: Option<Package>,
-
     pub name: String,
     pub struct_support_language_list: DataStruct,
-
     pub fn_get_by_locale_with_args: Method,
     pub const_support_languages: BTreeSet<Statement>,
     pub stat_build_support_language_list: Statement,
@@ -81,7 +80,7 @@ impl I18nCodeGenerator {
                 is_static: true,
                 is_final: true,
                 r#type: Types::String,
-                name: key.replace(".", "_").to_uppercase(),
+                name: Naming::new(key.replace(".", "_").to_uppercase()),
             },
             op: Operation::Assign,
             right_hand: RightHand::Value(format!("\"{key}\"")),
@@ -94,7 +93,7 @@ impl I18nCodeGenerator {
                 is_static: true,
                 is_final: true,
                 r#type: Types::String,
-                name: language_iso639_code.replace("\\.", "_").to_uppercase(),
+                name: Naming::new(language_iso639_code.replace("\\.", "_").to_uppercase()),
             },
             op: Operation::Assign,
             right_hand: RightHand::Value(format!("\"{language_iso639_code}\"")),

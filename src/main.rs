@@ -11,6 +11,7 @@ use crate::{
     i18n_files_reader::I18nFileReader,
     polyglot::{
         common::{
+            Naming,
             data_struct::DataStruct,
             field::Field,
             i18n_code_generator::I18nCodeGenerator,
@@ -36,7 +37,7 @@ fn main() {
         is_static: true,
         is_final: true,
         r#type: Types::List(Box::new(Types::Custom(STRUCT_NAME_SUPPORT_LANGUAGE))),
-        name: INSTANCE_NAME_LANGUAGE_LIST.to_string(),
+        name: Naming::new(INSTANCE_NAME_LANGUAGE_LIST),
     };
     let package = args
         .package

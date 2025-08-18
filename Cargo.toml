@@ -15,3 +15,4 @@ serde = { version = "1.0", features = ["derive"] }
 whatlang = "0.16"
 hashlink = { version = "0.10" }
 java-properties = "2.0"
+convert_case = "0.8"

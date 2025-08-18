@@ -1,29 +1,29 @@
 public class Ri18n {
 
 	public static class SupportLanguage {
-		public String cn_name;
-		public String en_name;
-		public String iso639_code;
-		public String native_name;
+		public String cnName;
+		public String enName;
+		public String iso639Code;
+		public String nativeName;
 
-		SupportLanguage(String cn_name, String en_name, String iso639_code, String native_name) {
-			this.cn_name = cn_name;
-			this.en_name = en_name;
-			this.iso639_code = iso639_code;
-			this.native_name = native_name;
+		SupportLanguage(String cnName, String enName, String iso639Code, String nativeName) {
+			this.cnName = cnName;
+			this.enName = enName;
+			this.iso639Code = iso639Code;
+			this.nativeName = nativeName;
 		}
 
 	}
 
-	public static String get_by_locale(String iso639_code, String i18n_key, Object... args) {
-		String i18n_keyTemplate = get_by_locale(iso639_code, i18n_key);
-		if (i18n_keyTemplate == null || i18n_keyTemplate.isEmpty()) {
+	public static String getByLocale(String iso639Code, String i18NKey, Object... args) {
+		String i18NKeyTemplate = getByLocale(iso639Code, i18NKey);
+		if (i18NKeyTemplate == null || i18NKeyTemplate.isEmpty()) {
 			return null;
 		}
-		return i18n_keyTemplate.formatted(args);
+		return i18NKeyTemplate.formatted(args);
 	}
 
-	public static final java.util.ArrayList<SupportLanguage> language_list = new java.util.ArrayList<SupportLanguage>();
+	public static final java.util.ArrayList<SupportLanguage> LANGUAGE_LIST = new java.util.ArrayList<SupportLanguage>();
 	public static class Iso639Codes {
 		public static final String AR = "ar";
 		public static final String DE = "de";
@@ -35,12 +35,12 @@ public class Ri18n {
 	}
 
 	static {
-		language_list.add(new SupportLanguage("阿拉伯语", "Arabic", "ar", "العربية"));
-		language_list.add(new SupportLanguage("德语", "German", "de", "Deutsch"));
-		language_list.add(new SupportLanguage("英语", "English", "en", "English"));
-		language_list.add(new SupportLanguage("西班牙语", "Spanish", "es", "español"));
-		language_list.add(new SupportLanguage("日语", "Japanese", "ja", "日本語"));
-		language_list.add(new SupportLanguage("中文", "Chinese", "zh", "中文"));
+		LANGUAGE_LIST.add(new SupportLanguage("阿拉伯语", "Arabic", "ar", "العربية"));
+		LANGUAGE_LIST.add(new SupportLanguage("德语", "German", "de", "Deutsch"));
+		LANGUAGE_LIST.add(new SupportLanguage("英语", "English", "en", "English"));
+		LANGUAGE_LIST.add(new SupportLanguage("西班牙语", "Spanish", "es", "español"));
+		LANGUAGE_LIST.add(new SupportLanguage("日语", "Japanese", "ja", "日本語"));
+		LANGUAGE_LIST.add(new SupportLanguage("中文", "Chinese", "zh", "中文"));
 	}
 
 	public static class Keys {
@@ -53,9 +53,9 @@ public class Ri18n {
 
 	}
 
-	public static String get_by_locale(String iso639_code, String i18n_key) {
-		if (iso639_code == "ar") {
-			switch (i18n_key) {
+	public static String getByLocale(String iso639Code, String i18NKey) {
+		if (iso639Code == "ar") {
+			switch (i18NKey) {
 				case "animal.cat.desc":
 					return "هذا نمر، اسمه %s، عمره %d سنة، ووزنه %f كيلوغرام";
 				case "animal.cat.name":
@@ -70,8 +70,8 @@ public class Ri18n {
 					return "أليس";
 			}
 		}
-		if (iso639_code == "de") {
-			switch (i18n_key) {
+		if (iso639Code == "de") {
+			switch (i18NKey) {
 				case "animal.cat.desc":
 					return "Dies ist ein Tiger, sein Name ist %s, er ist %d Jahre alt und wiegt %f Kilogramm";
 				case "animal.cat.name":
@@ -86,8 +86,8 @@ public class Ri18n {
 					return "Alice";
 			}
 		}
-		if (iso639_code == "en") {
-			switch (i18n_key) {
+		if (iso639Code == "en") {
+			switch (i18NKey) {
 				case "animal.cat.desc":
 					return "This is a tiger, his name is %s, age is %d and weight is %f";
 				case "animal.cat.name":
@@ -102,8 +102,8 @@ public class Ri18n {
 					return "Alice";
 			}
 		}
-		if (iso639_code == "es") {
-			switch (i18n_key) {
+		if (iso639Code == "es") {
+			switch (i18NKey) {
 				case "animal.cat.desc":
 					return "Este es un tigre, se llama %s, tiene %d años y pesa %f kilos";
 				case "animal.cat.name":
@@ -118,8 +118,8 @@ public class Ri18n {
 					return "Alicia";
 			}
 		}
-		if (iso639_code == "ja") {
-			switch (i18n_key) {
+		if (iso639Code == "ja") {
+			switch (i18NKey) {
 				case "animal.cat.desc":
 					return "これは虎です。名前は%s、年齢は%d歳、体重は%fキロです";
 				case "animal.cat.name":
@@ -134,8 +134,8 @@ public class Ri18n {
 					return "アリス";
 			}
 		}
-		if (iso639_code == "zh") {
-			switch (i18n_key) {
+		if (iso639Code == "zh") {
+			switch (i18NKey) {
 				case "animal.cat.desc":
 					return "这是一只老虎，它的名字叫%s，年龄%d岁，体重%f公斤";
 				case "animal.cat.name":

@@ -3,7 +3,7 @@ use crate::{
         ARG_NAME_ARGS, ARG_NAME_I18N_KEY, ARG_NAME_ISO639, METHOD_NAME_GET_BY_LOCALE,
         METHOD_NAME_GET_BY_LOCALE_WITH_ARGS,
     },
-    polyglot::common::{field::Field, i18n_switch::LanguageMatcher, used_types::Types},
+    polyglot::common::{Naming, field::Field, i18n_switch::LanguageMatcher, used_types::Types},
 };
 
 #[derive(Debug, Default)]
@@ -12,10 +12,10 @@ pub enum I18nMethodType {
         language_matcher: LanguageMatcher,
     },
     GetByLocaleWithArgs {
-        fn_name_get_locale: String,
-        arg_name_iso639: String,
-        arg_name_i18n_key: String,
-        arg_name_args: String,
+        fn_name_get_locale: Naming,
+        arg_name_iso639: Naming,
+        arg_name_i18n_key: Naming,
+        arg_name_args: Naming,
     },
     #[default]
     Empty,
@@ -29,7 +29,7 @@ pub struct I18nMethodContent {
 
 #[derive(Debug, Default)]
 pub struct Method {
-    pub name: String,
+    pub name: Naming,
     pub args: Vec<Field>,
     pub return_type: Types,
     pub is_public: bool,
@@ -48,16 +48,16 @@ impl Method {
         let arg_name_iso639 = arg_name_iso639.unwrap_or(ARG_NAME_ISO639);
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         Self {
-            name: method_name.to_string(),
+            name: Naming::new(method_name),
             args: vec![
                 Field {
                     r#type: Types::String,
-                    name: arg_name_iso639.to_string(),
+                    name: Naming::new(arg_name_iso639),
                     ..Default::default()
                 },
                 Field {
                     r#type: Types::String,
-                    name: arg_name_i18n_key.to_string(),
+                    name: Naming::new(arg_name_i18n_key),
                     ..Default::default()
                 },
             ],
@@ -67,8 +67,8 @@ impl Method {
             code: I18nMethodContent {
                 tp: I18nMethodType::GetByLocale {
                     language_matcher: LanguageMatcher {
-                        arg_name_iso639: arg_name_iso639.to_string(),
-                        arg_name_i18n_key: arg_name_i18n_key.to_string(),
+                        arg_name_iso639: Naming::new(arg_name_iso639),
+                        arg_name_i18n_key: Naming::new(arg_name_i18n_key),
                         language_to_entries: Default::default(),
                         base_ident: base_ident + 1,
                     },
@@ -90,21 +90,21 @@ impl Method {
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         let arg_name_args = arg_name_args.unwrap_or(ARG_NAME_ARGS);
         Self {
-            name: method_name.to_string(),
+            name: Naming::new(method_name),
             args: vec![
                 Field {
                     r#type: Types::String,
-                    name: arg_name_iso639.to_string(),
+                    name: Naming::new(arg_name_iso639),
                     ..Default::default()
                 },
                 Field {
                     r#type: Types::String,
-                    name: arg_name_i18n_key.to_string(),
+                    name: Naming::new(arg_name_i18n_key),
                     ..Default::default()
                 },
                 Field {
                     r#type: Types::ListAny,
-                    name: arg_name_args.to_string(),
+                    name: Naming::new(arg_name_args),
                     ..Default::default()
                 },
             ],
@@ -113,10 +113,10 @@ impl Method {
             is_static: true,
             code: I18nMethodContent {
                 tp: I18nMethodType::GetByLocaleWithArgs {
-                    fn_name_get_locale: METHOD_NAME_GET_BY_LOCALE.to_string(),
-                    arg_name_iso639: arg_name_iso639.to_string(),
-                    arg_name_i18n_key: arg_name_i18n_key.to_string(),
-                    arg_name_args: arg_name_args.to_string(),
+                    fn_name_get_locale: Naming::new(METHOD_NAME_GET_BY_LOCALE),
+                    arg_name_iso639: Naming::new(arg_name_iso639),
+                    arg_name_i18n_key: Naming::new(arg_name_i18n_key),
+                    arg_name_args: Naming::new(arg_name_args),
                 },
                 base_ident: base_ident + 1,
             },
