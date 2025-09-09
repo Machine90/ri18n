@@ -1,16 +1,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{common::i18n_entry::I18nEntry, polyglot::common::{FormatContent, Naming}};
+use crate::{
+    common::i18n_entry::I18nEntry,
+    polyglot::common::{FormatContent, Naming},
+};
 
 #[derive(Debug, Default)]
-pub(crate) struct I18nSwitch {
+pub struct I18nSwitch {
     pub arg_name_i18n_key: Naming,
     pub entries: BTreeSet<I18nEntry>,
     pub base_ident: u8,
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct LanguageMatcher {
+pub struct LanguageMatcher {
     pub arg_name_iso639: Naming,
     pub arg_name_i18n_key: Naming,
     pub language_to_entries: BTreeMap<String, I18nSwitch>,

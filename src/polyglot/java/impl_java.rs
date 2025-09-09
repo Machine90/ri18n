@@ -25,7 +25,7 @@ impl IntoJava for Package {
             .map(|p| p.to_string_lossy().to_string())
             .collect::<Vec<_>>()
             .join(".");
-        format!("import {package}")
+        format!("package {package}")
     }
 }
 
@@ -263,7 +263,7 @@ impl IntoJava for LanguageMatcher {
         let mut lines = CodeLines::new(*base_ident, TERMINATOR);
         for (lang, switch) in language_to_entries {
             lines.push_without_terminator(format!(
-                "if ({} == \"{lang}\") {{",
+                "if (\"{lang}\".equals({})) {{",
                 arg_name_iso639.replace(to_camelcase)
             ));
             lines.extend(switch.into_java());

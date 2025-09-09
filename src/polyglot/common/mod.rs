@@ -15,7 +15,7 @@ use regex::Regex;
 
 lazy_static! {
     pub static ref REGEX: Regex =
-        Regex::new(r"\{(string|s|str)\}|\{c\}|\{char\}|\{u32\}|\{u64\}|\{f32\}|\{f64\}|\{bool\}|\{hex\}|\{exp\}")
+        Regex::new(r"\{(string|s|str)\}|\{c\}|\{char\}|\{u32\}|\{u64\}|\{u128\}|\{i32\}|\{i64\}|\{u8\}|\{u16\}|\{usize\}|\{f32\}|\{f64\}|\{bool\}|\{hex\}|\{exp\}")
             .expect("Invalid regex");
 }
 
@@ -52,7 +52,8 @@ impl FormatContent {
             .replace_all(&self.i18n_content, |caps: &regex::Captures<'_>| {
                 match caps.get(0).unwrap().as_str() {
                     "{string}" | "{s}" | "{str}" => matcher(Format::String),
-                    "{u32}" | "{u64}" => matcher(Format::Int32),
+                    "{u32}" | "{u64}" | "{i32}" | "{i64}" | "{u8}" | "{u16}" | "{u128}"
+                    | "{usize}" => matcher(Format::Int32),
                     "{f32}" | "{f64}" => matcher(Format::Float),
                     "{c}" | "{char}" => matcher(Format::Char),
                     "{bool}" => matcher(Format::Bool),

@@ -13,7 +13,10 @@ use whatlang::{Detector, Lang};
 use yaml_rust2::{Yaml, yaml};
 
 use crate::{
-    common::{i18n_entry::I18nEntry, iso639_codes::whatlang_to_iso639},
+    common::{
+        i18n_entry::I18nEntry,
+        iso639_codes::{iso639_map, whatlang_to_iso639},
+    },
     polyglot::common::FormatContent,
 };
 
@@ -63,7 +66,7 @@ impl<W: FnMut(&str, &str, &str)> I18nFileReader<W> {
                 None => continue,
             };
             for entry in entries {
-                (self.writer)(iso639_code, &entry.key, &entry.value.i18n_content);
+                (self.writer)(&iso639_code, &entry.key, &entry.value.i18n_content);
             }
         }
         Ok(())
@@ -103,7 +106,7 @@ impl<W: FnMut(&str, &str, &str)> I18nFileReader<W> {
     }
 }
 
-fn get_language_hint_from_filename(file_path: &PathBuf) -> Result<&'static str> {
+fn get_language_hint_from_filename(file_path: &PathBuf) -> Result<String> {
     let file_name = file_path
         .file_name()
         .context("Failed to get file name")?
@@ -111,21 +114,33 @@ fn get_language_hint_from_filename(file_path: &PathBuf) -> Result<&'static str> 
         .to_string()
         .to_lowercase()
         .replace("-", "_");
-    if file_name.contains("_zh") || file_name.contains("_cn") {
-        return Ok("zh");
-    } else if file_name.contains("_en") || file_name.contains("_us") {
-        return Ok("en");
-    } else if file_name.contains("_ja") || file_name.contains("_jp") {
-        return Ok("ja");
-    } else if file_name.contains("_ar") {
-        return Ok("ar");
-    } else if file_name.contains("_es") {
-        return Ok("es");
+    let file_name = file_name
+        .split(".")
+        .next()
+        .context("Failed to get file name without extension")?;
+    let iso639_code = if file_name.contains("-") {
+        file_name
+            .split("-")
+            .last()
+            .expect("Failed to parse language")
+    } else if file_name.contains("_") {
+        file_name
+            .split("_")
+            .last()
+            .expect("Failed to parse language")
+    } else {
+        return Err(anyhow::anyhow!(
+            "Failed to detect iso639 code from file name"
+        ));
     }
-    Err(anyhow::anyhow!("Failed to detect language from file name"))
+    .to_lowercase();
+    if !iso639_map().contains_key(iso639_code.as_str()) {
+        return Err(anyhow::anyhow!("Invalid iso639 code"));
+    }
+    return Ok(iso639_code);
 }
 
-fn detect_language(entries: &HashSet<I18nEntry>, detector: &Detector) -> Option<&'static str> {
+fn detect_language(entries: &HashSet<I18nEntry>, detector: &Detector) -> Option<String> {
     let mut codes = entries
         .iter()
         .filter_map(|ent| detector.detect(&ent.value.i18n_content))
@@ -140,7 +155,9 @@ fn detect_language(entries: &HashSet<I18nEntry>, detector: &Detector) -> Option<
         .map(|(k, v)| (v, k))
         .collect::<BTreeMap<(u64, u32), Lang>>();
 
-    let maybe_code = codes.last_entry().map(|ent| whatlang_to_iso639(ent.get()));
+    let maybe_code = codes
+        .last_entry()
+        .map(|ent| whatlang_to_iso639(ent.get()).to_string());
     maybe_code
 }
 

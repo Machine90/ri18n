@@ -2,8 +2,8 @@ use std::{collections::BTreeSet, str::FromStr};
 
 use clap::Parser;
 
-use crate::{
-    args::Args,
+use ri18n::{
+    args::{Args, Target},
     common::constants::{
         ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
         INSTANCE_NAME_LANGUAGE_LIST, STRUCT_NAME_SUPPORT_LANGUAGE,
@@ -23,11 +23,6 @@ use crate::{
         java::IntoJava,
     },
 };
-
-pub mod args;
-pub mod common;
-pub mod i18n_files_reader;
-pub mod polyglot;
 
 fn main() {
     let args = Args::parse();
@@ -87,7 +82,7 @@ fn main() {
     }
 
     let (file_name, code) = match args.language {
-        args::Target::Java => (format!("{}.java", args.name), i18n_gen.into_java()),
+        Target::Java => (format!("{}.java", args.name), i18n_gen.into_java()),
     };
     let mut save_to = args.target_dir;
     if save_to.is_file() {

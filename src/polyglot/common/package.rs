@@ -15,7 +15,7 @@ impl FromStr for Package {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let package_path = if s.contains(".") {
-            s.split("\\.")
+            s.split(".")
                 .map(|seg| Path::new(seg.trim()).to_path_buf())
                 .collect::<PathBuf>()
         } else if s.contains("/") {

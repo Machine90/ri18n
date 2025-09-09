@@ -3,7 +3,7 @@ use std::hash::Hash;
 use crate::polyglot::common::FormatContent;
 
 #[derive(Debug, Clone)]
-pub(crate) struct I18nEntry {
+pub struct I18nEntry {
     pub(crate) key: String,
     pub(crate) value: FormatContent,
 }
