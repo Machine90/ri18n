@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-#[derive(Subcommand, Clone, Debug)]
+#[derive(Subcommand, Clone, Debug, PartialEq, Eq, Hash)]
 #[clap(rename_all = "kebab-case")]
 pub enum Target {
     Java,
