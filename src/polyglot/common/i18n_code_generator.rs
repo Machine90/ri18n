@@ -1,15 +1,9 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::{
-    common::iso639_codes::{Iso639Entry, iso639_map},
+    common::iso639_codes::{iso639_map, Iso639Entry},
     polyglot::common::{
-        Naming,
-        data_struct::DataStruct,
-        field::Field,
-        i18n_method::Method,
-        package::Package,
-        statement::{Operation, RightHand, Statement},
-        used_types::Types,
+        data_struct::DataStruct, field::Field, i18n_method::Method, package::{Package, PackageAction}, statement::{Operation, RightHand, Statement}, used_types::Types, Naming
     },
 };
 
@@ -42,7 +36,7 @@ impl Ord for InsertSupportLanguageListCall {
 
 #[derive(Debug)]
 pub struct I18nCodeGenerator {
-    pub package: Option<Package>,
+    pub package: Option<PackageAction>,
     pub name: String,
     pub struct_support_language_list: DataStruct,
     pub fn_get_by_locale_with_args: Method,

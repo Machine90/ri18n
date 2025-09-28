@@ -22,11 +22,12 @@ fn main() {
         args.constants_only,
     );
     let code = code_gen
-        .generate_code(args.language)
+        .generate_code(args.language.clone())
         .expect("Failed to generate target language code");
 
     let file_name = match args.language {
         Target::Java => format!("{}.java", args.name),
+        Target::Rust { .. } => format!("{}.rs", args.name),
     };
     let mut save_to = args.target_dir;
     if save_to.is_file() {

@@ -1,6 +1,7 @@
 use crate::common::code_lines::CodeLines;
 use crate::common::i18n_entry::I18nEntry;
 use crate::polyglot::common::i18n_switch::{I18nSwitch, LanguageMatcher};
+use crate::polyglot::common::package::PackageAction;
 use crate::polyglot::common::{Naming, to_camelcase, to_constant};
 use crate::polyglot::{
     common::{
@@ -27,7 +28,16 @@ impl IntoJava for Package {
             .map(|p| p.to_string_lossy().to_string())
             .collect::<Vec<_>>()
             .join(".");
-        format!("package {package}")
+        package
+    }
+}
+
+impl IntoJava for PackageAction {
+    fn into_java(&self) -> String {
+        match self {
+            PackageAction::Import(package) => format!("import {}", package.into_java()),
+            PackageAction::Define(package) => format!("package {}", package.into_java()),
+        }
     }
 }
 
