@@ -1,9 +1,15 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::{
-    common::iso639_codes::{iso639_map, Iso639Entry},
+    common::iso639_codes::{Iso639Entry, iso639_map},
     polyglot::common::{
-        data_struct::DataStruct, field::Field, i18n_method::Method, package::{Package, PackageAction}, statement::{Operation, RightHand, Statement}, used_types::Types, Naming
+        Naming,
+        data_struct::DataStruct,
+        field::Field,
+        i18n_method::Method,
+        package::{Package, PackageAction},
+        statement::{Operation, RightHand, Statement},
+        used_types::Types,
     },
 };
 
@@ -66,6 +72,8 @@ impl I18nCodeGenerator {
             language_iso639_code: language_iso639_code.to_string(),
             iso639_entry,
         };
+        self.call_insert_support_language_list.insert(language);
+
         if !generate_constants_only {
             let fn_match_entries = self
                 .fn_match_entries
@@ -79,8 +87,6 @@ impl I18nCodeGenerator {
             self.fn_get_by_locale
                 .insert_get_by_locale(language_iso639_code, &fn_match_entries);
         }
-
-        self.call_insert_support_language_list.insert(language);
 
         let const_i18n_key = Statement {
             left_hand: Field {

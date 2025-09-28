@@ -1,13 +1,25 @@
-use std::str::FromStr;
+use std::{
+    collections::{BTreeSet, HashSet},
+    str::FromStr,
+};
 
 use crate::{
-    common::{code_lines::CodeLines, i18n_entry::I18nEntry},
+    common::{
+        code_lines::CodeLines,
+        constants::{
+            ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
+        },
+        i18n_entry::I18nEntry,
+    },
     polyglot::{
         common::{
             Naming,
+            data_struct::DataStruct,
             field::Field,
-            i18n_code_generator::I18nCodeGenerator,
-            i18n_method::{I18nMethodContent, I18nMethodType, Method, MethodCall},
+            i18n_code_generator::{I18nCodeGenerator, InsertSupportLanguageListCall},
+            i18n_method::{
+                I18nMethodContent, I18nMethodType, Method, MethodCall, MethodDefinition,
+            },
             i18n_switch::{I18nSwitch, LanguageMatcher},
             module::Module,
             package::{Package, PackageAction},
@@ -16,7 +28,7 @@ use crate::{
             to_constant, to_snake_case,
             used_types::Types,
         },
-        rust::{IntoRust, RustSettings},
+        rust::{IntoRust, IntoRustConstruct, RustSettings},
     },
 };
 
@@ -98,11 +110,57 @@ impl IntoRust for Types {
     }
 }
 
+impl IntoRust for DataStruct {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            name,
+            fields,
+            base_ident,
+            ..
+        } = self;
+        let mut lines = CodeLines::new(*base_ident - 1, Some(","));
+        lines.push_without_terminator("#[derive(Debug, Clone)]");
+        lines.push_without_terminator(format!("pub struct {name} {{"));
+        for field in fields {
+            let field_name = field.name.replace(to_snake_case);
+            let modifier = match field.is_public {
+                true => format!("{} ", PUB_MODIFIER),
+                _ => "".to_string(),
+            };
+            let type_name = field.r#type.into_rust(settings);
+            lines.push(format!("\t{modifier}{}: {type_name}", field_name));
+        }
+        lines.push_without_terminator("}");
+        lines.generate()
+    }
+}
+
+impl IntoRustConstruct for DataStruct {
+    fn construct_rust(&self, base_ident: u8, args: Vec<Naming>) -> String {
+        let Self { name, fields, .. } = self;
+        let fields_name = fields
+            .iter()
+            .map(|f| f.name.clone())
+            .collect::<HashSet<_>>();
+
+        let mut lines = CodeLines::new(base_ident, Some(","));
+        lines.push_without_terminator(format!("{name} {{"));
+        for arg in args {
+            if !fields_name.contains(&arg) {
+                panic!("Failed to construct method {name}, fields mismatch");
+            }
+            let arg_name = arg.replace(to_snake_case);
+            lines.push(format!("\t{}: {}.to_string()", arg_name, arg_name));
+        }
+        lines.push_without_terminator("}");
+        lines.generate()
+    }
+}
+
 impl IntoRust for RightHand {
     fn into_rust(&self, _: &RustSettings) -> String {
         match self {
             RightHand::Value(v) => v.to_string(),
-            // RightHand::Construct(construct) => construct.into_java(),
             _ => "".to_string(),
         }
     }
@@ -279,7 +337,7 @@ macro_rules! {macros_name} {{
     )
 }
 
-impl IntoRust for Method {
+impl IntoRust for MethodDefinition {
     fn into_rust(&self, settings: &RustSettings) -> String {
         let Self {
             name,
@@ -287,19 +345,7 @@ impl IntoRust for Method {
             return_type,
             is_public,
             is_static,
-            code,
-            base_ident,
         } = self;
-        if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
-            // generate macros
-            let fn_name_get_locale = match &code.tp {
-                I18nMethodType::GetByLocaleWithArgs {
-                    fn_name_get_locale, ..
-                } => fn_name_get_locale,
-                _ => unreachable!(),
-            };
-            return macros_get_by_locale(name, fn_name_get_locale);
-        }
         let modifier = match is_public {
             true => format!("{PUB_MODIFIER} "),
             _ => format!(""),
@@ -317,13 +363,36 @@ impl IntoRust for Method {
             .map(|arg| arg.into_rust(settings))
             .collect::<Vec<_>>()
             .join(", ");
-        // there is no class in rust implement, so base_ident decrease 1
-        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
-        lines.push_without_terminator(format!(
-            "{modifier}fn {}({args}) -> {} {{",
+        format!(
+            "{modifier}fn {}({args}) -> {}",
             name.replace(to_snake_case),
             return_type.into_rust(settings),
-        ));
+        )
+    }
+}
+
+impl IntoRust for Method {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            definition,
+            code,
+            base_ident,
+        } = self;
+        if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
+            // generate macros
+            let fn_name_get_locale = match &code.tp {
+                I18nMethodType::GetByLocaleWithArgs {
+                    fn_name_get_locale, ..
+                } => fn_name_get_locale,
+                _ => unreachable!(),
+            };
+            return macros_get_by_locale(&definition.name, fn_name_get_locale);
+        }
+
+        let method_definition = definition.into_rust(settings);
+        // there is no class in rust implement, so base_ident decrease 1
+        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        lines.push_without_terminator(format!("{method_definition} {{",));
         lines.extend(code.into_rust(settings));
         lines.push_without_terminator("}");
         lines.generate()
@@ -336,7 +405,6 @@ impl IntoRust for I18nCodeGenerator {
             struct_support_language_list,
             fn_get_by_locale_with_args,
             const_support_languages,
-            stat_build_support_language_list,
             call_insert_support_language_list,
             const_i18n_keys,
             fn_get_by_locale,
@@ -359,6 +427,18 @@ impl IntoRust for I18nCodeGenerator {
             lines.push(use_crate.into_rust(settings));
         }
         lines.next_line_if_true(has_crates);
+
+        let struct_support_language_codes = struct_support_language_list.into_rust(settings);
+        lines
+            .extend(struct_support_language_codes)
+            .next_line_if_true(true);
+
+        let codes = method_list_support_language(
+            struct_support_language_list,
+            call_insert_support_language_list,
+            settings,
+        );
+        lines.extend(codes).next_line_if_true(true);
 
         // render iso639 codes constants
         let mut iso639_module = Module {
@@ -406,4 +486,55 @@ impl IntoRust for I18nCodeGenerator {
         }
         lines.generate()
     }
+}
+
+fn method_list_support_language(
+    struct_support_language_list: &DataStruct,
+    support_language: &BTreeSet<InsertSupportLanguageListCall>,
+    settings: &RustSettings,
+) -> String {
+    let return_type = struct_support_language_list.name.as_str();
+    let method_definition = MethodDefinition {
+        name: Naming::new("list_support_language"),
+        return_type: Types::List(Box::new(Types::Custom(return_type.to_string()))),
+        is_public: true,
+        is_static: true,
+        ..Default::default()
+    }
+    .into_rust(settings);
+    let mut lines = CodeLines::new(0, TERMINATOR);
+    lines.push_without_terminator(format!("{method_definition} {{"));
+    lines.push_without_terminator("\t[");
+    for lang in support_language {
+        let code = lang.language_iso639_code.clone();
+        let cn_name = lang.iso639_entry.cn_name.to_string();
+        let en_name = lang.iso639_entry.en_name.to_string();
+        let native_name = lang.iso639_entry.native_name.to_string();
+        lines.push_without_terminator(format!(
+            "\t\t(\"{code}\", \"{cn_name}\", \"{en_name}\", \"{native_name}\"),"
+        ));
+    }
+    let args = vec![
+        Naming::new(ARG_NAME_ISO639),
+        Naming::new(FIELD_NAME_CN_NAME),
+        Naming::new(FIELD_NAME_EN_NAME),
+        Naming::new(FIELD_NAME_NATIVE_NAME),
+    ];
+    let arg_list = args
+        .iter()
+        .map(|n| n.replace(to_snake_case))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let constructed = struct_support_language_list.construct_rust(3, args);
+    lines
+        .push_without_terminator("\t]")
+        .push_without_terminator("\t.iter()")
+        .push_without_terminator("\t.map(")
+        .push_without_terminator(format!("\t\t|({arg_list})| {{"))
+        .push_without_terminator(constructed)
+        .push_without_terminator("\t\t}")
+        .push_without_terminator("\t)")
+        .push_without_terminator("\t.collect::<Vec<_>>()");
+    lines.push_without_terminator("}");
+    lines.generate()
 }

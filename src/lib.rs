@@ -50,7 +50,9 @@ impl I18nCodeGen {
             is_public: true,
             is_static: true,
             is_final: true,
-            r#type: Types::List(Box::new(Types::Custom(STRUCT_NAME_SUPPORT_LANGUAGE))),
+            r#type: Types::List(Box::new(Types::Custom(
+                STRUCT_NAME_SUPPORT_LANGUAGE.to_string(),
+            ))),
             name: Naming::new(INSTANCE_NAME_LANGUAGE_LIST),
         };
 
@@ -80,7 +82,9 @@ impl I18nCodeGen {
                 left_hand: language_list,
                 op: Operation::Assign,
                 right_hand: RightHand::Construct(Construct {
-                    tp: Types::List(Box::new(Types::Custom(STRUCT_NAME_SUPPORT_LANGUAGE))),
+                    tp: Types::List(Box::new(Types::Custom(
+                        STRUCT_NAME_SUPPORT_LANGUAGE.to_string(),
+                    ))),
                     args: vec![],
                 }),
             },

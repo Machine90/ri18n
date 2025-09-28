@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use crate::{IntoCode, args::Target, polyglot::common::i18n_code_generator::I18nCodeGenerator};
+use crate::{
+    IntoCode,
+    args::Target,
+    polyglot::common::{Naming, i18n_code_generator::I18nCodeGenerator},
+};
 
 pub(crate) mod impl_rust;
 
@@ -14,11 +18,7 @@ pub trait IntoRust {
 }
 
 pub(crate) trait IntoRustConstruct {
-    fn construct_rust(&self, args: Vec<&str>) -> String;
-}
-
-pub(crate) trait IntoRustConstructor {
-    fn into_constructor(&self) -> String;
+    fn construct_rust(&self, base_ident: u8, args: Vec<Naming>) -> String;
 }
 
 #[derive(Debug)]

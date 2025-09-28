@@ -1,5 +1,6 @@
 use crate::common::code_lines::CodeLines;
 use crate::common::i18n_entry::I18nEntry;
+use crate::polyglot::common::i18n_method::MethodDefinition;
 use crate::polyglot::common::i18n_switch::{I18nSwitch, LanguageMatcher};
 use crate::polyglot::common::package::PackageAction;
 use crate::polyglot::common::{Naming, to_camelcase, to_constant};
@@ -299,11 +300,14 @@ impl IntoJava for LanguageMatcher {
 impl IntoJava for Method {
     fn into_java(&self) -> String {
         let Self {
-            name,
-            args,
-            return_type,
-            is_public,
-            is_static,
+            definition:
+                MethodDefinition {
+                    name,
+                    args,
+                    return_type,
+                    is_public,
+                    is_static,
+                },
             code,
             base_ident,
         } = self;

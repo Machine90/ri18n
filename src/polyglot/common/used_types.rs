@@ -11,7 +11,7 @@ pub enum Types {
     List(Box<Types>),
     HashMap(Box<Types>, Box<Types>),
     Option(Box<Types>),
-    Custom(&'static str),
+    Custom(String),
 }
 
 #[derive(Debug, Clone)]

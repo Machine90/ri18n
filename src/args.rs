@@ -10,13 +10,8 @@ pub enum Target {
     Rust {
         /// If enable this value, code generator will using [formatx](https://crates.io/crates/formatx)
         /// to format i18n content with arguments.
-        ///
-        /// ## Requirements
-        /// Then you should add `formatx` dependency to your project:
-        /// ```toml
-        /// [dependencies]
-        /// formatx = "0.2"
-        /// ```
+        /// Note that after enabling this configuration, you need to add the `formatx` dependency to your
+        /// project using the command `cargo add formatx`.
         #[arg(short, long, env, default_value = "false", action = ArgAction::SetTrue)]
         formatx_enable: bool,
     },
