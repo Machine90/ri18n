@@ -15,7 +15,12 @@ fn main() {
         .map(|p| Package::from_str(&p))
         .transpose()
         .expect("Invalid package, format should be 'com.a.b' or 'com::a::b'");
-    let code_gen = I18nCodeGen::new(package.clone(), args.name.clone(), args.src_dir);
+    let code_gen = I18nCodeGen::new(
+        package.clone(),
+        args.name.clone(),
+        args.src_dir,
+        args.constants_only,
+    );
     let code = code_gen
         .generate_code(args.language)
         .expect("Failed to generate target language code");

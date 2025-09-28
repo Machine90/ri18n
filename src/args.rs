@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Subcommand, Clone, Debug, PartialEq, Eq, Hash)]
@@ -17,6 +17,9 @@ pub struct Args {
     pub package: Option<String>,
     #[arg(short, long, env, default_value = "Ri18n")]
     pub name: String,
+    /// Generate constant codes only if true
+    #[arg(short, long, env, default_value = "false", action = ArgAction::SetTrue)]
+    pub constants_only: bool,
     #[command(subcommand)]
     pub language: Target,
 }

@@ -60,6 +60,7 @@ impl I18nCodeGenerator {
         language_iso639_code: &str,
         key: &str,
         value: &str,
+        generate_constants_only: bool,
     ) -> &mut Self {
         let iso639_entry = iso639_map()
             .get(language_iso639_code)
@@ -71,17 +72,20 @@ impl I18nCodeGenerator {
             language_iso639_code: language_iso639_code.to_string(),
             iso639_entry,
         };
-        let fn_match_entries = self
-            .fn_match_entries
-            .entry(language_iso639_code.to_string())
-            .or_insert(Method::new_method_match_entries(
-                language_iso639_code,
-                None,
-                1,
-            ));
-        fn_match_entries.insert_match_entries(key, value);
-        self.fn_get_by_locale
-            .insert_get_by_locale(language_iso639_code, &fn_match_entries);
+        if !generate_constants_only {
+            let fn_match_entries = self
+                .fn_match_entries
+                .entry(language_iso639_code.to_string())
+                .or_insert(Method::new_method_match_entries(
+                    language_iso639_code,
+                    None,
+                    1,
+                ));
+            fn_match_entries.insert_match_entries(key, value);
+            self.fn_get_by_locale
+                .insert_get_by_locale(language_iso639_code, &fn_match_entries);
+        }
+
         self.call_insert_support_language_list.insert(language);
 
         let const_i18n_key = Statement {

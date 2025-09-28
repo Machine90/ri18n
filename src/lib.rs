@@ -37,7 +37,12 @@ pub struct I18nCodeGen {
 }
 
 impl I18nCodeGen {
-    pub fn new<P: AsRef<Path>>(package: Option<Package>, name: String, i18n_asset_dir: P) -> Self {
+    pub fn new<P: AsRef<Path>>(
+        package: Option<Package>,
+        name: String,
+        i18n_asset_dir: P,
+        generate_constants_only: bool,
+    ) -> Self {
         let src_dir = i18n_asset_dir.as_ref().to_path_buf();
 
         let language_list = Field {
@@ -84,7 +89,7 @@ impl I18nCodeGen {
         let mut i18n_files_reader = I18nFileReader {
             src_dir,
             writer: |iso639_code, i18n_key, value| {
-                i18n_gen.insert_i18n_entry(iso639_code, i18n_key, value);
+                i18n_gen.insert_i18n_entry(iso639_code, i18n_key, value, generate_constants_only);
             },
         };
         if let Err(e) = i18n_files_reader.run() {
