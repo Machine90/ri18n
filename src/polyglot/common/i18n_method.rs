@@ -61,17 +61,17 @@ impl Method {
             name: Naming::new(method_name),
             args: vec![
                 Field {
-                    r#type: Types::String,
+                    r#type: Types::RefString,
                     name: Naming::new(arg_name_iso639),
                     ..Default::default()
                 },
                 Field {
-                    r#type: Types::String,
+                    r#type: Types::RefString,
                     name: Naming::new(arg_name_i18n_key),
                     ..Default::default()
                 },
             ],
-            return_type: Types::String,
+            return_type: Types::Option(Box::new(Types::String)),
             is_public: true,
             is_static: true,
             code: I18nMethodContent {
@@ -103,12 +103,12 @@ impl Method {
             name: Naming::new(method_name),
             args: vec![
                 Field {
-                    r#type: Types::String,
+                    r#type: Types::RefString,
                     name: Naming::new(arg_name_iso639),
                     ..Default::default()
                 },
                 Field {
-                    r#type: Types::String,
+                    r#type: Types::RefString,
                     name: Naming::new(arg_name_i18n_key),
                     ..Default::default()
                 },
@@ -118,7 +118,7 @@ impl Method {
                     ..Default::default()
                 },
             ],
-            return_type: Types::String,
+            return_type: Types::Option(Box::new(Types::String)),
             is_public: true,
             is_static: true,
             code: I18nMethodContent {
@@ -144,12 +144,12 @@ impl Method {
         Self {
             name: method_name,
             args: vec![Field {
-                r#type: Types::String,
+                r#type: Types::RefString,
                 name: Naming::new(arg_name_i18n_key),
                 ..Default::default()
             }],
-            return_type: Types::String,
-            is_public: true,
+            return_type: Types::Option(Box::new(Types::String)),
+            is_public: false,
             is_static: true,
             code: I18nMethodContent {
                 tp: I18nMethodType::MatchEntries {

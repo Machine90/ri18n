@@ -1,17 +1,28 @@
 use std::str::FromStr;
 
 use crate::{
-    common::code_lines::CodeLines,
+    common::{code_lines::CodeLines, i18n_entry::I18nEntry},
     polyglot::{
         common::{
+            Naming,
+            field::Field,
             i18n_code_generator::I18nCodeGenerator,
+            i18n_method::{I18nMethodContent, I18nMethodType, Method},
+            i18n_switch::I18nSwitch,
+            module::Module,
             package::{Package, PackageAction},
+            rust_matcher,
+            statement::{Operation, RightHand, Statement},
+            to_constant, to_snake_case,
+            used_types::Types,
         },
         rust::{IntoRust, RustSettings},
     },
 };
 
 const TERMINATOR: Option<&'static str> = Some(";");
+const CONSTANTS_NAME_KEY: &str = "keys";
+const PUB_MODIFIER: &str = "pub";
 
 impl IntoRust for Package {
     fn into_rust(&self, _: &RustSettings) -> String {
@@ -31,6 +42,208 @@ impl IntoRust for PackageAction {
             PackageAction::Import(package) => format!("use {}", package.into_rust(settings)),
             _ => panic!("Rust doesn't support to define package in file"),
         }
+    }
+}
+
+impl IntoRust for Field {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            is_public,
+            is_static,
+            is_final,
+            r#type,
+            name,
+        } = self;
+        let modifier = match (is_public, is_static, is_final) {
+            (true, true, true) => format!("{PUB_MODIFIER} const "),
+            (true, true, false) => format!("{PUB_MODIFIER} static "),
+            (true, false, true) => format!("{PUB_MODIFIER} "),
+            (true, false, false) => format!("{PUB_MODIFIER} "),
+            (false, true, true) => format!("const "),
+            (false, true, false) => format!("static "),
+            (false, false, true) => format!(""),
+            (false, false, false) => format!(""),
+        };
+        let name = if *is_final && *is_static {
+            name.replace(to_constant)
+        } else {
+            name.replace(to_snake_case)
+        };
+        format!("{modifier}{name}: {}", r#type.into_rust(settings))
+    }
+}
+
+impl IntoRust for Types {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let code = match self {
+            Types::String => "String".to_string(),
+            Types::RefString => "&str".to_string(),
+            Types::List(generic_type) => {
+                format!("Vec<{}>", generic_type.into_rust(settings))
+            }
+            Types::HashMap(generic_key, generic_value) => {
+                format!(
+                    "std::collections::HashMap<{}, {}>",
+                    generic_key.into_rust(settings),
+                    generic_value.into_rust(settings)
+                )
+            }
+            Types::Custom(tp) => tp.to_string(),
+            Types::Void => "()".to_string(),
+            Types::ListAny => unreachable!("rust doesn't support ..args as method input"),
+            Types::Option(types) => format!("Option<{}>", types.into_rust(settings)),
+        };
+        code
+    }
+}
+
+impl IntoRust for RightHand {
+    fn into_rust(&self, _: &RustSettings) -> String {
+        match self {
+            RightHand::Value(v) => v.to_string(),
+            // RightHand::Construct(construct) => construct.into_java(),
+            _ => "".to_string(),
+        }
+    }
+}
+
+impl IntoRust for Operation {
+    fn into_rust(&self, _: &RustSettings) -> String {
+        self.to_string()
+    }
+}
+
+impl IntoRust for Statement {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            left_hand,
+            op,
+            right_hand,
+        } = self;
+        format!(
+            "{} {} {}",
+            left_hand.into_rust(settings),
+            op.into_rust(settings),
+            right_hand.into_rust(settings),
+        )
+    }
+}
+
+impl IntoRust for Module {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            is_public,
+            name,
+            statements,
+            base_ident,
+        } = self;
+
+        let modifier = match is_public {
+            true => format!("{PUB_MODIFIER} "),
+            _ => "".to_string(),
+        };
+        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        lines.push_without_terminator(format!("{modifier}mod {name} {{"));
+        for statement in statements {
+            lines.push(format!("\t{}", statement.into_rust(settings)));
+        }
+        lines.push_without_terminator("}");
+        lines.generate()
+    }
+}
+
+impl IntoRust for I18nSwitch {
+    fn into_rust(&self, _: &RustSettings) -> String {
+        let Self {
+            arg_name_i18n_key,
+            entries,
+            base_ident,
+        } = self;
+        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        const RETURN_VALUE_NAME: &str = "content";
+        lines.push_without_terminator(format!(
+            "let {RETURN_VALUE_NAME} = match {} {{",
+            arg_name_i18n_key.replace(to_snake_case)
+        ));
+        for I18nEntry { key, value } in entries {
+            let key = key.replace(".", "_");
+            lines.push_without_terminator(format!(
+                "\t{CONSTANTS_NAME_KEY}::{} => \"{}\",",
+                Naming::new(key).replace(to_constant),
+                value.replace(rust_matcher)
+            ));
+        }
+        lines.push_without_terminator(format!("\t_ => return None,"));
+        lines
+            .push_without_terminator("}")
+            .push(".to_string()")
+            .push_without_terminator(format!("Some({RETURN_VALUE_NAME})"))
+            .generate()
+    }
+}
+
+impl IntoRust for I18nMethodContent {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self { tp, base_ident } = self;
+        let mut lines = CodeLines::new(*base_ident - 1, None);
+        match tp {
+            // I18nMethodType::GetByLocale { language_matcher } => {
+            //     lines
+            //         .extend(language_matcher.into_java())
+            //         .push(format!("return null"));
+            // }
+            I18nMethodType::MatchEntries { match_entries } => {
+                lines.extend(match_entries.into_rust(settings));
+            }
+            I18nMethodType::GetByLocaleWithArgs { .. } | I18nMethodType::Empty => (),
+            _ => (),
+        };
+        lines.generate()
+    }
+}
+
+impl IntoRust for Method {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            name,
+            args,
+            return_type,
+            is_public,
+            is_static,
+            code,
+            base_ident,
+        } = self;
+        if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
+            // generate macros
+            return format!("");
+        }
+        let modifier = match is_public {
+            true => format!("{PUB_MODIFIER} "),
+            _ => format!(""),
+        };
+        let mut args = args.clone();
+        match is_static {
+            false => args.push(Field {
+                name: Naming::new("&self"),
+                ..Default::default()
+            }),
+            _ => (),
+        };
+        let args = args
+            .iter()
+            .map(|arg| arg.into_rust(settings))
+            .collect::<Vec<_>>()
+            .join(", ");
+        // there is no class in rust implement, so base_ident decrease 1
+        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        lines.push_without_terminator(format!(
+            "{modifier}fn {}({args}) -> {} {{",
+            name.replace(to_snake_case),
+            return_type.into_rust(settings),
+        ));
+        lines.extend(code.into_rust(settings));
+        lines.push_without_terminator("}");
+        lines.generate()
     }
 }
 
@@ -55,10 +268,34 @@ impl IntoRust for I18nCodeGenerator {
         }
 
         let mut lines = CodeLines::new(0, TERMINATOR);
+        lines
+            .push_without_terminator("#![allow(unused)]")
+            .next_line_if_true(true);
+        let has_crates = !use_crates.is_empty();
         for use_crate in use_crates {
             lines.push(use_crate.into_rust(settings));
         }
+        lines.next_line_if_true(has_crates);
 
+        // render keys constants
+        let mut key_module = Module {
+            is_public: true,
+            base_ident: 1,
+            name: CONSTANTS_NAME_KEY.to_string(),
+            ..Default::default()
+        };
+        for const_key in const_i18n_keys {
+            key_module.statements.insert(const_key.clone());
+        }
+        lines
+            .extend(key_module.into_rust(settings))
+            .next_line_if_true(true);
+
+        for (_, method) in fn_match_entries {
+            lines
+                .extend(method.into_rust(settings))
+                .next_line_if_true(true);
+        }
         lines.generate()
     }
 }

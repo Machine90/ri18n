@@ -17,7 +17,6 @@ use crate::polyglot::{
     java::{IntoJava, IntoJavaConstruct, IntoJavaConstructor},
 };
 const TERMINATOR: Option<&'static str> = Some(";");
-
 const CONSTANTS_NAME_KEY: &str = "Keys";
 
 impl IntoJava for Package {
@@ -45,6 +44,7 @@ impl IntoJava for Types {
     fn into_java(&self) -> String {
         match self {
             Types::String => "String".to_string(),
+            Types::RefString => "String".to_string(),
             Types::List(generic_type) => {
                 format!("java.util.ArrayList<{}>", generic_type.into_java())
             }
@@ -54,6 +54,9 @@ impl IntoJava for Types {
                     generic_key.into_java(),
                     generic_value.into_java()
                 )
+            }
+            Types::Option(inner) => {
+                format!("{}", inner.into_java())
             }
             Types::Custom(tp) => tp.to_string(),
             Types::Void => "void".to_string(),
@@ -219,7 +222,7 @@ impl IntoJava for DataStruct {
                 .next_line_if_true(true);
         }
 
-        lines.push_without_terminator("}".to_string()).generate()
+        lines.push_without_terminator("}").generate()
     }
 }
 
@@ -242,7 +245,7 @@ impl IntoJavaConstructor for DataStruct {
             let field_name = f.name.replace(to_camelcase);
             lines.push(format!("\tthis.{field_name} = {field_name}"));
         }
-        lines.push_without_terminator("}".to_string()).generate()
+        lines.push_without_terminator("}").generate()
     }
 }
 
@@ -268,7 +271,7 @@ impl IntoJava for I18nSwitch {
                 ))
                 .push(format!("\t\treturn \"{}\"", value.replace(java_matcher)));
         }
-        lines.push_without_terminator("}".to_string()).generate()
+        lines.push_without_terminator("}").generate()
     }
 }
 
@@ -288,7 +291,7 @@ impl IntoJava for LanguageMatcher {
                 arg_name_iso639.replace(to_camelcase)
             ));
             lines.push(format!("\treturn {}", fn_match_entries_call.into_java()));
-            lines.push_without_terminator("}".to_string());
+            lines.push_without_terminator("}");
         }
         lines.generate()
     }
@@ -323,7 +326,7 @@ impl IntoJava for Method {
             name.replace(to_camelcase),
         ));
         lines.extend(code.into_java());
-        lines.push_without_terminator("}".to_string());
+        lines.push_without_terminator("}");
         lines.generate()
     }
 }
@@ -417,7 +420,7 @@ impl IntoJava for I18nCodeGenerator {
             .left_hand
             .name
             .replace(to_constant);
-        lines.push_without_terminator("\tstatic {".to_string());
+        lines.push_without_terminator("\tstatic {");
         for InsertSupportLanguageListCall {
             language_iso639_code,
             iso639_entry,
@@ -437,9 +440,7 @@ impl IntoJava for I18nCodeGenerator {
             };
             lines.push(format!("\t\t{}", call_add_support_language.into_java()));
         }
-        lines
-            .push_without_terminator("\t}".to_string())
-            .next_line_if_true(true);
+        lines.push_without_terminator("\t}").next_line_if_true(true);
 
         // render keys constants
         let mut keys_class = DataStruct {

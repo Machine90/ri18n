@@ -6,9 +6,11 @@ pub enum Types {
     #[default]
     Void,
     String,
+    RefString,
     ListAny,
     List(Box<Types>),
     HashMap(Box<Types>, Box<Types>),
+    Option(Box<Types>),
     Custom(&'static str),
 }
 

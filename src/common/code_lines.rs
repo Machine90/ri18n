@@ -24,19 +24,24 @@ impl CodeLines {
         self
     }
 
-    pub fn push(&mut self, line: String) -> &mut Self {
+    pub fn push<S: ToString>(&mut self, line: S) -> &mut Self {
+        self.lines.push(format!(
+            "{}{}{}",
+            self.ident_code,
+            line.to_string(),
+            self.end_with
+        ));
+        self
+    }
+
+    pub fn push_without_terminator<S: ToString>(&mut self, line: S) -> &mut Self {
         self.lines
-            .push(format!("{}{}{}", self.ident_code, line, self.end_with));
+            .push(format!("{}{}", self.ident_code, line.to_string()));
         self
     }
 
-    pub fn push_without_terminator(&mut self, line: String) -> &mut Self {
-        self.lines.push(format!("{}{}", self.ident_code, line));
-        self
-    }
-
-    pub fn extend(&mut self, codes: String) -> &mut Self {
-        self.lines.push(format!("{}", codes));
+    pub fn extend<S: ToString>(&mut self, codes: S) -> &mut Self {
+        self.lines.push(format!("{}", codes.to_string()));
         self
     }
 

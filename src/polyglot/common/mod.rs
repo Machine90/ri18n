@@ -5,6 +5,7 @@ pub mod field;
 pub mod i18n_code_generator;
 pub mod i18n_method;
 pub mod i18n_switch;
+pub mod module;
 pub mod package;
 pub mod statement;
 pub mod used_types;
@@ -76,6 +77,18 @@ pub fn java_matcher(fmt: Format) -> &'static str {
         Format::Bool => "%b",
         Format::Hex => "%x",
         Format::Exponent => "%e",
+    }
+}
+
+pub fn rust_matcher(fmt: Format) -> &'static str {
+    match fmt {
+        Format::String
+        | Format::Int32
+        | Format::Float
+        | Format::Char
+        | Format::Bool
+        | Format::Hex
+        | Format::Exponent => "{}",
     }
 }
 

@@ -129,9 +129,7 @@ fn get_language_hint_from_filename(file_path: &PathBuf) -> Result<String> {
             .last()
             .expect("Failed to parse language")
     } else {
-        return Err(anyhow::anyhow!(
-            "Failed to detect iso639 code from file name"
-        ));
+        file_name
     }
     .to_lowercase();
     if !iso639_map().contains_key(iso639_code.as_str()) {
