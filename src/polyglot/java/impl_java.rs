@@ -1,7 +1,7 @@
 use crate::common::code_lines::CodeLines;
 use crate::common::i18n_entry::I18nEntry;
 use crate::polyglot::common::i18n_switch::{I18nSwitch, LanguageMatcher};
-use crate::polyglot::common::{to_camelcase, to_constant};
+use crate::polyglot::common::{Naming, to_camelcase, to_constant};
 use crate::polyglot::{
     common::{
         data_struct::DataStruct,
@@ -16,6 +16,8 @@ use crate::polyglot::{
     java::{IntoJava, IntoJavaConstruct, IntoJavaConstructor},
 };
 const TERMINATOR: Option<&'static str> = Some(";");
+
+const CONSTANTS_NAME_KEY: &str = "Keys";
 
 impl IntoJava for Package {
     fn into_java(&self) -> String {
@@ -156,6 +158,11 @@ impl IntoJava for I18nMethodContent {
                         arg_name_args.replace(to_camelcase)
                     ));
             }
+            I18nMethodType::MatchEntries { match_entries } => {
+                lines
+                    .extend(match_entries.into_java())
+                    .push(format!("return null"));
+            }
             I18nMethodType::Empty => (),
         };
         lines.generate()
@@ -243,8 +250,12 @@ impl IntoJava for I18nSwitch {
             arg_name_i18n_key.replace(to_camelcase)
         ));
         for I18nEntry { key, value } in entries {
+            let key = key.replace(".", "_");
             lines
-                .push_without_terminator(format!("\tcase \"{key}\":"))
+                .push_without_terminator(format!(
+                    "\tcase {CONSTANTS_NAME_KEY}.{}:",
+                    Naming::new(key).replace(to_constant)
+                ))
                 .push(format!("\t\treturn \"{}\"", value.replace(java_matcher)));
         }
         lines.push_without_terminator("}".to_string()).generate()
@@ -254,19 +265,19 @@ impl IntoJava for I18nSwitch {
 impl IntoJava for LanguageMatcher {
     fn into_java(&self) -> String {
         let Self {
-            language_to_entries,
+            language_to_fn_match_entries,
             base_ident,
             arg_name_iso639,
             ..
         } = self;
 
         let mut lines = CodeLines::new(*base_ident, TERMINATOR);
-        for (lang, switch) in language_to_entries {
+        for (lang, fn_match_entries_call) in language_to_fn_match_entries {
             lines.push_without_terminator(format!(
                 "if (\"{lang}\".equals({})) {{",
                 arg_name_iso639.replace(to_camelcase)
             ));
-            lines.extend(switch.into_java());
+            lines.push(format!("\treturn {}", fn_match_entries_call.into_java()));
             lines.push_without_terminator("}".to_string());
         }
         lines.generate()
@@ -311,15 +322,32 @@ impl IntoJava for MethodCall {
     fn into_java(&self) -> String {
         let Self {
             instance,
+            raw_instance_name,
             method_name,
-            args,
+            args_name,
+            raw_args_name,
         } = self;
         let instance_name = instance
             .clone()
-            .map(|i| format!("{i}."))
-            .unwrap_or_default();
-        let args_str = args.join(", ");
-        format!("{instance_name}{method_name}({args_str})")
+            .map(|name| name.replace(to_camelcase))
+            .map(|name| format!("{name}."));
+        let raw_instance_name = raw_instance_name.clone().map(|name| format!("{name}."));
+        let args_str = args_name
+            .iter()
+            .map(|arg_name| arg_name.replace(to_camelcase))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let raw_args_name = raw_args_name.join(", ");
+        let args_name = if raw_args_name.is_empty() {
+            args_str
+        } else {
+            raw_args_name
+        };
+
+        let final_instance_name = raw_instance_name.or(instance_name).unwrap_or_default();
+        let method_name = method_name.replace(to_camelcase);
+
+        format!("{final_instance_name}{method_name}({args_name})")
     }
 }
 
@@ -335,6 +363,7 @@ impl IntoJava for I18nCodeGenerator {
             stat_build_support_language_list,
             call_insert_support_language_list,
             const_i18n_keys,
+            fn_match_entries,
         } = self;
         let mut lines = CodeLines::new(0, TERMINATOR);
         if let Some(pkg) = package {
@@ -391,9 +420,9 @@ impl IntoJava for I18nCodeGenerator {
                 &format!("\"{}\"", iso639_entry.native_name),
             ]);
             let call_add_support_language = MethodCall {
-                instance: Some(instance_support_language.to_string()),
-                method_name: "add".to_string(),
-                args: vec![constructed],
+                raw_instance_name: Some(instance_support_language.to_string()),
+                method_name: Naming::new("add"),
+                raw_args_name: vec![constructed],
                 ..Default::default()
             };
             lines.push(format!("\t\t{}", call_add_support_language.into_java()));
@@ -405,7 +434,7 @@ impl IntoJava for I18nCodeGenerator {
         // render keys constants
         let mut keys_class = DataStruct {
             is_static: true,
-            name: "Keys".to_string(),
+            name: CONSTANTS_NAME_KEY.to_string(),
             base_ident: 1,
             ..Default::default()
         };
@@ -417,6 +446,10 @@ impl IntoJava for I18nCodeGenerator {
         lines
             .extend(fn_get_by_locale.into_java())
             .next_line_if_true(true);
+
+        for (_, method) in fn_match_entries {
+            lines.extend(method.into_java()).next_line_if_true(true);
+        }
 
         lines.push_without_terminator("}".to_owned());
         lines.generate()

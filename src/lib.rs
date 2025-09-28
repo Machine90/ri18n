@@ -68,6 +68,7 @@ impl I18nCodeGen {
             fn_get_by_locale_with_args: Method::new_method_get_by_locale_with_args(
                 None, None, None, 1,
             ),
+            fn_match_entries: Default::default(),
             const_support_languages: [].into(),
             stat_build_support_language_list: Statement {
                 left_hand: language_list,

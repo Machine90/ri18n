@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::{
     common::iso639_codes::{Iso639Entry, iso639_map},
@@ -51,6 +51,7 @@ pub struct I18nCodeGenerator {
     pub call_insert_support_language_list: BTreeSet<InsertSupportLanguageListCall>,
     pub const_i18n_keys: BTreeSet<Statement>,
     pub fn_get_by_locale: Method,
+    pub fn_match_entries: HashMap<String, Method>,
 }
 
 impl I18nCodeGenerator {
@@ -70,8 +71,17 @@ impl I18nCodeGenerator {
             language_iso639_code: language_iso639_code.to_string(),
             iso639_entry,
         };
+        let fn_match_entries = self
+            .fn_match_entries
+            .entry(language_iso639_code.to_string())
+            .or_insert(Method::new_method_match_entries(
+                language_iso639_code,
+                None,
+                1,
+            ));
+        fn_match_entries.insert_match_entries(key, value);
         self.fn_get_by_locale
-            .insert(language_iso639_code, key, value);
+            .insert_get_by_locale(language_iso639_code, &fn_match_entries);
         self.call_insert_support_language_list.insert(language);
 
         let const_i18n_key = Statement {
