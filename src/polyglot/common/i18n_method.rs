@@ -78,7 +78,6 @@ impl Method {
                 tp: I18nMethodType::GetByLocale {
                     language_matcher: LanguageMatcher {
                         arg_name_iso639: Naming::new(arg_name_iso639),
-                        arg_name_i18n_key: Naming::new(arg_name_i18n_key),
                         language_to_fn_match_entries: Default::default(),
                         base_ident: base_ident + 1,
                     },

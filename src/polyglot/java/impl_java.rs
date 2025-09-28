@@ -281,7 +281,6 @@ impl IntoJava for LanguageMatcher {
             language_to_fn_match_entries,
             base_ident,
             arg_name_iso639,
-            ..
         } = self;
 
         let mut lines = CodeLines::new(*base_ident, TERMINATOR);

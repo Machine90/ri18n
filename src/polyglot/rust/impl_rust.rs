@@ -7,8 +7,8 @@ use crate::{
             Naming,
             field::Field,
             i18n_code_generator::I18nCodeGenerator,
-            i18n_method::{I18nMethodContent, I18nMethodType, Method},
-            i18n_switch::I18nSwitch,
+            i18n_method::{I18nMethodContent, I18nMethodType, Method, MethodCall},
+            i18n_switch::{I18nSwitch, LanguageMatcher},
             module::Module,
             package::{Package, PackageAction},
             rust_matcher,
@@ -22,6 +22,7 @@ use crate::{
 
 const TERMINATOR: Option<&'static str> = Some(";");
 const CONSTANTS_NAME_KEY: &str = "keys";
+const CONSTANTS_NAME_ISO639_CODES: &str = "iso639_codes";
 const PUB_MODIFIER: &str = "pub";
 
 impl IntoRust for Package {
@@ -182,24 +183,100 @@ impl IntoRust for I18nSwitch {
     }
 }
 
+impl IntoRust for LanguageMatcher {
+    fn into_rust(&self, settings: &RustSettings) -> String {
+        let Self {
+            arg_name_iso639,
+            language_to_fn_match_entries,
+            base_ident,
+        } = self;
+        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        lines.push_without_terminator(format!(
+            "match {} {{",
+            arg_name_iso639.replace(to_snake_case)
+        ));
+        for (language, fn_match_entries_call) in language_to_fn_match_entries {
+            lines.push_without_terminator(format!(
+                "\t\"{language}\" => {},",
+                fn_match_entries_call.into_rust(settings)
+            ));
+        }
+        lines
+            .push_without_terminator(format!("\t_ => None,"))
+            .push_without_terminator("}");
+        lines.generate()
+    }
+}
+
 impl IntoRust for I18nMethodContent {
     fn into_rust(&self, settings: &RustSettings) -> String {
         let Self { tp, base_ident } = self;
         let mut lines = CodeLines::new(*base_ident - 1, None);
         match tp {
-            // I18nMethodType::GetByLocale { language_matcher } => {
-            //     lines
-            //         .extend(language_matcher.into_java())
-            //         .push(format!("return null"));
-            // }
+            I18nMethodType::GetByLocale { language_matcher } => {
+                lines.extend(language_matcher.into_rust(settings));
+            }
             I18nMethodType::MatchEntries { match_entries } => {
                 lines.extend(match_entries.into_rust(settings));
             }
             I18nMethodType::GetByLocaleWithArgs { .. } | I18nMethodType::Empty => (),
-            _ => (),
         };
         lines.generate()
     }
+}
+
+impl IntoRust for MethodCall {
+    fn into_rust(&self, _: &RustSettings) -> String {
+        let Self {
+            instance,
+            raw_instance_name,
+            method_name,
+            args_name,
+            raw_args_name,
+        } = self;
+        let instance_name = instance
+            .clone()
+            .map(|name| name.replace(to_snake_case))
+            .map(|name| format!("{name}."));
+        let raw_instance_name = raw_instance_name.clone().map(|name| format!("{name}."));
+        let args_str = args_name
+            .iter()
+            .map(|arg_name| arg_name.replace(to_snake_case))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let raw_args_name = raw_args_name.join(", ");
+        let args_name = if raw_args_name.is_empty() {
+            args_str
+        } else {
+            raw_args_name
+        };
+
+        let instance_call_with = raw_instance_name.or(instance_name).unwrap_or_default();
+        let method_name = method_name.replace(to_snake_case);
+
+        format!("{instance_call_with}{method_name}({args_name})")
+    }
+}
+
+fn macros_get_by_locale(macros_name: &Naming, fn_name_get_locale: &Naming) -> String {
+    let macros_name = macros_name.replace(to_snake_case);
+    let fn_name_get_locale = fn_name_get_locale.replace(to_snake_case);
+    format!(
+        r#"
+#[macro_export]
+macro_rules! {macros_name} {{
+    ($code:expr, $key:expr) => {{
+        $crate::{fn_name_get_locale}($code, $key)
+    }};
+    ($code:expr, $key:expr, $($values:tt)*) => {{
+        if let Some(template) = $crate::{fn_name_get_locale}($code, $key) {{
+            Some($crate::formatx!(template, $($values)*))
+        }} else {{
+            None
+        }}
+    }};
+}}"#,
+    )
 }
 
 impl IntoRust for Method {
@@ -215,7 +292,13 @@ impl IntoRust for Method {
         } = self;
         if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
             // generate macros
-            return format!("");
+            let fn_name_get_locale = match &code.tp {
+                I18nMethodType::GetByLocaleWithArgs {
+                    fn_name_get_locale, ..
+                } => fn_name_get_locale,
+                _ => unreachable!(),
+            };
+            return macros_get_by_locale(name, fn_name_get_locale);
         }
         let modifier = match is_public {
             true => format!("{PUB_MODIFIER} "),
@@ -277,6 +360,20 @@ impl IntoRust for I18nCodeGenerator {
         }
         lines.next_line_if_true(has_crates);
 
+        // render iso639 codes constants
+        let mut iso639_module = Module {
+            is_public: true,
+            name: CONSTANTS_NAME_ISO639_CODES.to_string(),
+            base_ident: 1,
+            ..Default::default()
+        };
+        for statement in const_support_languages {
+            iso639_module.statements.insert(statement.clone());
+        }
+        lines
+            .extend(iso639_module.into_rust(settings))
+            .next_line_if_true(true);
+
         // render keys constants
         let mut key_module = Module {
             is_public: true,
@@ -291,6 +388,17 @@ impl IntoRust for I18nCodeGenerator {
             .extend(key_module.into_rust(settings))
             .next_line_if_true(true);
 
+        if settings.formatx_enable {
+            // generate `get_by_locale!()` macros
+            let codes = fn_get_by_locale_with_args.into_rust(settings);
+            lines.extend(codes).next_line_if_true(true);
+        }
+
+        // generate method `get_by_locale()`
+        let codes = fn_get_by_locale.into_rust(settings);
+        lines.extend(codes).next_line_if_true(true);
+
+        // generate methods `match_entries_{iso639code}``
         for (_, method) in fn_match_entries {
             lines
                 .extend(method.into_rust(settings))
