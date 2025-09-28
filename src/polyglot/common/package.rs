@@ -27,7 +27,7 @@ impl FromStr for Package {
                 .map(|seg| Path::new(seg.trim()).to_path_buf())
                 .collect::<PathBuf>()
         } else {
-            return Err(anyhow!("{s} as import is not support"));
+            Path::new(s.trim()).to_path_buf()
         };
         Ok(Self { package_path })
     }

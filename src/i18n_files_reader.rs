@@ -40,6 +40,9 @@ impl InputFile {
     }
 }
 
+/// The i18n file reader will detect all supported i18n file under the `src_dir`,
+/// then read all entries from each file, the key of i18n entries will be converted
+/// to `x.y.z` format.
 pub struct I18nFileReader<W: FnMut(&str, &str, &str)> {
     pub src_dir: PathBuf,
     pub writer: W,

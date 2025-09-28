@@ -25,6 +25,7 @@ pub struct Args {
     pub target_dir: PathBuf,
     #[arg(short, long, env)]
     pub package: Option<String>,
+    /// Generated file name without extension.
     #[arg(short, long, env, default_value = "Ri18n")]
     pub name: String,
     /// Generate constant codes only if true

@@ -316,23 +316,41 @@ impl IntoRust for MethodCall {
     }
 }
 
-fn macros_get_by_locale(macros_name: &Naming, fn_name_get_locale: &Naming) -> String {
+fn macros_get_by_locale(module_path: String, method: &Method) -> String {
+    // macros_name: &Naming, fn_name_get_locale: &Naming
+    let Method {
+        definition, code, ..
+    } = method;
+    if !matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
+        return format!("");
+    }
+    // generate macros
+    let macros_name = &definition.name;
+    let fn_name_get_locale = match &code.tp {
+        I18nMethodType::GetByLocaleWithArgs {
+            fn_name_get_locale, ..
+        } => fn_name_get_locale,
+        _ => unreachable!(),
+    };
     let macros_name = macros_name.replace(to_snake_case);
     let fn_name_get_locale = fn_name_get_locale.replace(to_snake_case);
+    let module_path = format!("crate::{module_path}");
+
     format!(
         r#"
 #[macro_export]
 macro_rules! {macros_name} {{
     ($code:expr, $key:expr) => {{
-        $crate::{fn_name_get_locale}($code, $key)
+        ${module_path}::{fn_name_get_locale}($code, $key)
     }};
-    ($code:expr, $key:expr, $($values:tt)*) => {{
-        if let Some(template) = $crate::{fn_name_get_locale}($code, $key) {{
-            Some($crate::formatx!(template, $($values)*))
+    ($code:expr, $key:expr, $($values:tt)*) => {{{{
+        #[allow(unused_imports)] use formatx::formatx;
+        if let Some(template) = ${module_path}::{fn_name_get_locale}($code, $key) {{
+            Some(self::formatx!(template, $($values)*))
         }} else {{
             None
         }}
-    }};
+    }}}};
 }}"#,
     )
 }
@@ -380,13 +398,7 @@ impl IntoRust for Method {
         } = self;
         if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
             // generate macros
-            let fn_name_get_locale = match &code.tp {
-                I18nMethodType::GetByLocaleWithArgs {
-                    fn_name_get_locale, ..
-                } => fn_name_get_locale,
-                _ => unreachable!(),
-            };
-            return macros_get_by_locale(&definition.name, fn_name_get_locale);
+            return format!("");
         }
 
         let method_definition = definition.into_rust(settings);
@@ -409,24 +421,12 @@ impl IntoRust for I18nCodeGenerator {
             const_i18n_keys,
             fn_get_by_locale,
             fn_match_entries,
+            package,
+            name,
             ..
         } = self;
-        let mut use_crates = vec![];
-        if settings.formatx_enable {
-            use_crates.push(PackageAction::Import(
-                Package::from_str("formatx::formatx").expect("Failed to parse package"),
-            ));
-        }
 
         let mut lines = CodeLines::new(0, TERMINATOR);
-        lines
-            .push_without_terminator("#![allow(unused)]")
-            .next_line_if_true(true);
-        let has_crates = !use_crates.is_empty();
-        for use_crate in use_crates {
-            lines.push(use_crate.into_rust(settings));
-        }
-        lines.next_line_if_true(has_crates);
 
         let struct_support_language_codes = struct_support_language_list.into_rust(settings);
         lines
@@ -469,8 +469,24 @@ impl IntoRust for I18nCodeGenerator {
             .next_line_if_true(true);
 
         if settings.formatx_enable {
+            let module_path = package
+                .as_ref()
+                .map(|p| match &p {
+                    PackageAction::Import(_) => None,
+                    PackageAction::Define(package) => Some(package.clone()),
+                })
+                .flatten()
+                .map(|mut p| {
+                    p.package_path = p.package_path.join(name);
+                    p.into_rust(settings)
+                })
+                .unwrap_or_else(|| {
+                    Package::from_str(&name)
+                        .expect("Failed to parse path")
+                        .into_rust(settings)
+                });
             // generate `get_by_locale!()` macros
-            let codes = fn_get_by_locale_with_args.into_rust(settings);
+            let codes = macros_get_by_locale(module_path, &fn_get_by_locale_with_args);
             lines.extend(codes).next_line_if_true(true);
         }
 
