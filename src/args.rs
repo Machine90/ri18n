@@ -1,10 +1,20 @@
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
+use enum_kinds::EnumKind;
 use std::path::PathBuf;
 
-#[derive(Subcommand, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Subcommand, Clone, Debug, EnumKind, PartialEq, Eq, Hash)]
 #[clap(rename_all = "kebab-case")]
+#[enum_kind(TargetKind, derive(Hash))]
 pub enum Target {
     Java,
+    Rust {
+        /// If enable this value, code generator will using [formatx](https://crates.io/crates/formatx)
+        /// to format i18n content with arguments.
+        /// Note that after enabling this configuration, you need to add the `formatx` dependency to your
+        /// project using the command `cargo add formatx`.
+        #[arg(short, long, env, default_value = "false", action = ArgAction::SetTrue)]
+        formatx_enable: bool,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -17,6 +27,9 @@ pub struct Args {
     pub package: Option<String>,
     #[arg(short, long, env, default_value = "Ri18n")]
     pub name: String,
+    /// Generate constant codes only if true
+    #[arg(short, long, env, default_value = "false", action = ArgAction::SetTrue)]
+    pub constants_only: bool,
     #[command(subcommand)]
     pub language: Target,
 }

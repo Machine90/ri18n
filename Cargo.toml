@@ -16,4 +16,5 @@ whatlang = "0.16"
 hashlink = { version = "0.10" }
 java-properties = "2.0"
 convert_case = "0.8"
-tracing = "*"
+tracing = "0.1"
+enum-kinds = "0.5"

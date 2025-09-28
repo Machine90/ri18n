@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{IntoCode, polyglot::common::i18n_code_generator::I18nCodeGenerator};
+use crate::{IntoCode, args::Target, polyglot::common::i18n_code_generator::I18nCodeGenerator};
 
 pub(crate) mod impl_java;
 
@@ -22,7 +22,7 @@ pub(crate) struct JavaCodeGen {
 }
 
 impl IntoCode for JavaCodeGen {
-    fn into_code(&self) -> String {
+    fn into_code(&self, _: Target) -> String {
         self.generator.as_ref().into_java()
     }
 }

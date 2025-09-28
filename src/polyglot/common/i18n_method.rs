@@ -38,12 +38,17 @@ pub struct I18nMethodContent {
 }
 
 #[derive(Debug, Default)]
-pub struct Method {
+pub struct MethodDefinition {
     pub name: Naming,
     pub args: Vec<Field>,
     pub return_type: Types,
     pub is_public: bool,
     pub is_static: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct Method {
+    pub definition: MethodDefinition,
     pub code: I18nMethodContent,
     pub base_ident: u8,
 }
@@ -58,27 +63,28 @@ impl Method {
         let arg_name_iso639 = arg_name_iso639.unwrap_or(ARG_NAME_ISO639);
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         Self {
-            name: Naming::new(method_name),
-            args: vec![
-                Field {
-                    r#type: Types::String,
-                    name: Naming::new(arg_name_iso639),
-                    ..Default::default()
-                },
-                Field {
-                    r#type: Types::String,
-                    name: Naming::new(arg_name_i18n_key),
-                    ..Default::default()
-                },
-            ],
-            return_type: Types::String,
-            is_public: true,
-            is_static: true,
+            definition: MethodDefinition {
+                name: Naming::new(method_name),
+                args: vec![
+                    Field {
+                        r#type: Types::RefString,
+                        name: Naming::new(arg_name_iso639),
+                        ..Default::default()
+                    },
+                    Field {
+                        r#type: Types::RefString,
+                        name: Naming::new(arg_name_i18n_key),
+                        ..Default::default()
+                    },
+                ],
+                return_type: Types::Option(Box::new(Types::String)),
+                is_public: true,
+                is_static: true,
+            },
             code: I18nMethodContent {
                 tp: I18nMethodType::GetByLocale {
                     language_matcher: LanguageMatcher {
                         arg_name_iso639: Naming::new(arg_name_iso639),
-                        arg_name_i18n_key: Naming::new(arg_name_i18n_key),
                         language_to_fn_match_entries: Default::default(),
                         base_ident: base_ident + 1,
                     },
@@ -100,27 +106,29 @@ impl Method {
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         let arg_name_args = arg_name_args.unwrap_or(ARG_NAME_ARGS);
         Self {
-            name: Naming::new(method_name),
-            args: vec![
-                Field {
-                    r#type: Types::String,
-                    name: Naming::new(arg_name_iso639),
-                    ..Default::default()
-                },
-                Field {
-                    r#type: Types::String,
-                    name: Naming::new(arg_name_i18n_key),
-                    ..Default::default()
-                },
-                Field {
-                    r#type: Types::ListAny,
-                    name: Naming::new(arg_name_args),
-                    ..Default::default()
-                },
-            ],
-            return_type: Types::String,
-            is_public: true,
-            is_static: true,
+            definition: MethodDefinition {
+                name: Naming::new(method_name),
+                args: vec![
+                    Field {
+                        r#type: Types::RefString,
+                        name: Naming::new(arg_name_iso639),
+                        ..Default::default()
+                    },
+                    Field {
+                        r#type: Types::RefString,
+                        name: Naming::new(arg_name_i18n_key),
+                        ..Default::default()
+                    },
+                    Field {
+                        r#type: Types::ListAny,
+                        name: Naming::new(arg_name_args),
+                        ..Default::default()
+                    },
+                ],
+                return_type: Types::Option(Box::new(Types::String)),
+                is_public: true,
+                is_static: true,
+            },
             code: I18nMethodContent {
                 tp: I18nMethodType::GetByLocaleWithArgs {
                     fn_name_get_locale: Naming::new(METHOD_NAME_GET_BY_LOCALE),
@@ -142,15 +150,17 @@ impl Method {
         let method_name = Naming::new(&format!("match_entries_{iso639_code}"));
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         Self {
-            name: method_name,
-            args: vec![Field {
-                r#type: Types::String,
-                name: Naming::new(arg_name_i18n_key),
-                ..Default::default()
-            }],
-            return_type: Types::String,
-            is_public: true,
-            is_static: true,
+            definition: MethodDefinition {
+                name: method_name,
+                args: vec![Field {
+                    r#type: Types::RefString,
+                    name: Naming::new(arg_name_i18n_key),
+                    ..Default::default()
+                }],
+                return_type: Types::Option(Box::new(Types::String)),
+                is_public: false,
+                is_static: true,
+            },
             code: I18nMethodContent {
                 tp: I18nMethodType::MatchEntries {
                     match_entries: I18nSwitch {
@@ -196,11 +206,14 @@ pub struct MethodCall {
 impl From<&Method> for MethodCall {
     fn from(method: &Method) -> Self {
         let Method {
-            name,
-            args,
-            return_type,
-            is_public,
-            is_static,
+            definition:
+                MethodDefinition {
+                    name,
+                    args,
+                    return_type,
+                    is_public,
+                    is_static,
+                },
             code,
             base_ident,
         } = method;
@@ -216,7 +229,7 @@ impl From<&Method> for MethodCall {
 
 impl PartialEq for Method {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+        self.definition.name == other.definition.name
     }
 }
 
@@ -224,6 +237,6 @@ impl Eq for Method {}
 
 impl Hash for Method {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
+        self.definition.name.hash(state);
     }
 }

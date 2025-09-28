@@ -32,3 +32,9 @@ impl FromStr for Package {
         Ok(Self { package_path })
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum PackageAction {
+    Import(Package),
+    Define(Package),
+}

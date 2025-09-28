@@ -18,7 +18,6 @@ pub struct I18nSwitch {
 #[derive(Debug, Default)]
 pub struct LanguageMatcher {
     pub arg_name_iso639: Naming,
-    pub arg_name_i18n_key: Naming,
     pub language_to_fn_match_entries: BTreeMap<String, MethodCall>,
     pub base_ident: u8,
 }
