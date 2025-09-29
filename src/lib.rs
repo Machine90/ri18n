@@ -56,6 +56,15 @@ impl I18nCodeGen {
             name: Naming::new(INSTANCE_NAME_LANGUAGE_LIST),
         };
 
+        let mut fn_get_by_locale = None;
+        let mut fn_get_by_locale_with_args = None;
+        if !generate_constants_only {
+            fn_get_by_locale = Some(Method::new_method_get_by_locale(None, None, 1));
+            fn_get_by_locale_with_args = Some(Method::new_method_get_by_locale_with_args(
+                None, None, None, 1,
+            ));
+        }
+
         let mut i18n_gen = I18nCodeGenerator {
             package: package.map(PackageAction::Define),
             name,
@@ -72,10 +81,8 @@ impl I18nCodeGen {
                 with_constructor: true,
                 ..Default::default()
             },
-            fn_get_by_locale: Method::new_method_get_by_locale(None, None, 1),
-            fn_get_by_locale_with_args: Method::new_method_get_by_locale_with_args(
-                None, None, None, 1,
-            ),
+            fn_get_by_locale,
+            fn_get_by_locale_with_args,
             fn_match_entries: Default::default(),
             const_support_languages: [].into(),
             stat_build_support_language_list: Statement {

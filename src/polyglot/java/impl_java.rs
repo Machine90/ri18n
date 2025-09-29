@@ -395,9 +395,11 @@ impl IntoJava for I18nCodeGenerator {
             .extend(struct_support_language_list.into_java())
             .next_line_if_true(true);
 
-        lines
-            .extend(fn_get_by_locale_with_args.into_java())
-            .next_line_if_true(true);
+        if let Some(fn_get_by_locale_with_args) = fn_get_by_locale_with_args {
+            lines
+                .extend(fn_get_by_locale_with_args.into_java())
+                .next_line_if_true(true);
+        }
 
         lines.push(format!(
             "\t{}",
@@ -456,10 +458,11 @@ impl IntoJava for I18nCodeGenerator {
             keys_class.statements.insert(const_key.clone());
         }
         lines.extend(keys_class.into_java()).next_line_if_true(true);
-
-        lines
-            .extend(fn_get_by_locale.into_java())
-            .next_line_if_true(true);
+        if let Some(fn_get_by_locale) = fn_get_by_locale {
+            lines
+                .extend(fn_get_by_locale.into_java())
+                .next_line_if_true(true);
+        }
 
         for (_, method) in fn_match_entries {
             lines.extend(method.into_java()).next_line_if_true(true);

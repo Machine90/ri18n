@@ -45,12 +45,12 @@ pub struct I18nCodeGenerator {
     pub package: Option<PackageAction>,
     pub name: String,
     pub struct_support_language_list: DataStruct,
-    pub fn_get_by_locale_with_args: Method,
-    pub const_support_languages: BTreeSet<Statement>,
     pub stat_build_support_language_list: Statement,
     pub call_insert_support_language_list: BTreeSet<InsertSupportLanguageListCall>,
+    pub const_support_languages: BTreeSet<Statement>,
     pub const_i18n_keys: BTreeSet<Statement>,
-    pub fn_get_by_locale: Method,
+    pub fn_get_by_locale: Option<Method>,
+    pub fn_get_by_locale_with_args: Option<Method>,
     pub fn_match_entries: HashMap<String, Method>,
 }
 
@@ -85,7 +85,8 @@ impl I18nCodeGenerator {
                 ));
             fn_match_entries.insert_match_entries(key, value);
             self.fn_get_by_locale
-                .insert_get_by_locale(language_iso639_code, &fn_match_entries);
+                .as_mut()
+                .map(|v| v.insert_get_by_locale(language_iso639_code, &fn_match_entries));
         }
 
         let const_i18n_key = Statement {

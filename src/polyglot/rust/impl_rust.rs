@@ -468,31 +468,35 @@ impl IntoRust for I18nCodeGenerator {
             .extend(key_module.into_rust(settings))
             .next_line_if_true(true);
 
-        if settings.formatx_enable {
-            let module_path = package
-                .as_ref()
-                .map(|p| match &p {
-                    PackageAction::Import(_) => None,
-                    PackageAction::Define(package) => Some(package.clone()),
-                })
-                .flatten()
-                .map(|mut p| {
-                    p.package_path = p.package_path.join(name);
-                    p.into_rust(settings)
-                })
-                .unwrap_or_else(|| {
-                    Package::from_str(&name)
-                        .expect("Failed to parse path")
-                        .into_rust(settings)
-                });
-            // generate `get_by_locale!()` macros
-            let codes = macros_get_by_locale(module_path, &fn_get_by_locale_with_args);
-            lines.extend(codes).next_line_if_true(true);
+        if let Some(fn_get_by_locale_with_args) = fn_get_by_locale_with_args {
+            if settings.formatx_enable {
+                let module_path = package
+                    .as_ref()
+                    .map(|p| match &p {
+                        PackageAction::Import(_) => None,
+                        PackageAction::Define(package) => Some(package.clone()),
+                    })
+                    .flatten()
+                    .map(|mut p| {
+                        p.package_path = p.package_path.join(name);
+                        p.into_rust(settings)
+                    })
+                    .unwrap_or_else(|| {
+                        Package::from_str(&name)
+                            .expect("Failed to parse path")
+                            .into_rust(settings)
+                    });
+                // generate `get_by_locale!()` macros
+                let codes = macros_get_by_locale(module_path, &fn_get_by_locale_with_args);
+                lines.extend(codes).next_line_if_true(true);
+            }
         }
 
         // generate method `get_by_locale()`
-        let codes = fn_get_by_locale.into_rust(settings);
-        lines.extend(codes).next_line_if_true(true);
+        if let Some(fn_get_by_locale) = fn_get_by_locale {
+            let codes = fn_get_by_locale.into_rust(settings);
+            lines.extend(codes).next_line_if_true(true);
+        }
 
         // generate methods `match_entries_{iso639code}``
         for (_, method) in fn_match_entries {
