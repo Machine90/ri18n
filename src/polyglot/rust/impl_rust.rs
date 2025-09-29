@@ -346,7 +346,7 @@ macro_rules! {macros_name} {{
     ($code:expr, $key:expr, $($values:tt)*) => {{{{
         #[allow(unused_imports)] use formatx::formatx;
         if let Some(template) = ${module_path}::{fn_name_get_locale}($code, $key) {{
-            Some(self::formatx!(template, $($values)*))
+            Some(formatx!(template, $($values)*))
         }} else {{
             None
         }}

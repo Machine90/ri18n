@@ -1,4 +1,12 @@
-## Install
+# Ri18n
+
+## Usage
+Using Ri18n to generate i18n codes, you can run command:
+```shell
+ri18n -s path/to/your/i18nfile_{iso639}.[yaml, json, properties, toml] -t src/ -n name_of_code_file java
+```
+
+## Build
 To compile cross platform, we should install [cross](https://github.com/cross-rs/cross) by using command:
 `cargo install cross --git https://github.com/cross-rs/cross`
 
