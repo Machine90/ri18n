@@ -2,3 +2,4 @@
 Cargo.lock
 codegen
 .vscode
+/dist

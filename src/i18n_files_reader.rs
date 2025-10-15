@@ -313,17 +313,3 @@ fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
         .collect::<HashSet<_>>();
     Ok(entries)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test() {
-        let v = read_i18n_entries_from_toml(
-            format!("C:\\Users\\machi\\workspace\\tools\\ri18n\\tests\\data\\i18n_en.toml").into(),
-        )
-        .unwrap();
-        println!("{v:#?}");
-    }
-}

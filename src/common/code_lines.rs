@@ -1,4 +1,4 @@
-const IDENT: &str = "\t";
+pub const IDENT: &str = "    ";
 
 #[derive(Default)]
 pub(crate) struct CodeLines {

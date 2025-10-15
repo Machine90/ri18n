@@ -1,4 +1,4 @@
-use crate::common::code_lines::CodeLines;
+use crate::common::code_lines::{CodeLines, IDENT};
 use crate::common::i18n_entry::I18nEntry;
 use crate::polyglot::common::i18n_method::MethodDefinition;
 use crate::polyglot::common::i18n_switch::{I18nSwitch, LanguageMatcher};
@@ -165,7 +165,7 @@ impl IntoJava for I18nMethodContent {
                     .push_without_terminator(format!(
                         "if ({template} == null || {template}.isEmpty()) {{"
                     ))
-                    .push(format!("\treturn null"))
+                    .push(format!("{IDENT}return null"))
                     .push_without_terminator(format!("}}"))
                     .push(format!(
                         "return {template}.formatted({})",
@@ -209,11 +209,11 @@ impl IntoJava for DataStruct {
         };
         lines.push_without_terminator(format!("public {modifier}class {name} {{"));
         for field in fields.iter() {
-            lines.push(format!("\t{}", field.into_java()));
+            lines.push(format!("{IDENT}{}", field.into_java()));
         }
         lines.next_line_if_true(!fields.is_empty());
         for stat in statements.iter() {
-            lines.push(format!("\t{}", stat.into_java()));
+            lines.push(format!("{IDENT}{}", stat.into_java()));
         }
         lines.next_line_if_true(!statements.is_empty());
 
@@ -244,7 +244,7 @@ impl IntoJavaConstructor for DataStruct {
         lines.push_without_terminator(format!("{name}({args}) {{"));
         for f in fields {
             let field_name = f.name.replace(to_camelcase);
-            lines.push(format!("\tthis.{field_name} = {field_name}"));
+            lines.push(format!("{IDENT}this.{field_name} = {field_name}"));
         }
         lines.push_without_terminator("}").generate()
     }
@@ -267,10 +267,10 @@ impl IntoJava for I18nSwitch {
             let key = key.replace(".", "_");
             lines
                 .push_without_terminator(format!(
-                    "\tcase {CONSTANTS_NAME_KEY}.{}:",
+                    "{IDENT}case {CONSTANTS_NAME_KEY}.{}:",
                     Naming::new(key).replace(to_constant)
                 ))
-                .push(format!("\t\treturn \"{}\"", value.replace(java_matcher)));
+                .push(format!("{IDENT}{IDENT}return \"{}\"", value.replace(java_matcher)));
         }
         lines.push_without_terminator("}").generate()
     }
@@ -290,7 +290,7 @@ impl IntoJava for LanguageMatcher {
                 "if (\"{lang}\".equals({})) {{",
                 arg_name_iso639.replace(to_camelcase)
             ));
-            lines.push(format!("\treturn {}", fn_match_entries_call.into_java()));
+            lines.push(format!("{IDENT}return {}", fn_match_entries_call.into_java()));
             lines.push_without_terminator("}");
         }
         lines.generate()
@@ -402,7 +402,7 @@ impl IntoJava for I18nCodeGenerator {
         }
 
         lines.push(format!(
-            "\t{}",
+            "{IDENT}{}",
             stat_build_support_language_list.into_java()
         ));
 
@@ -425,7 +425,7 @@ impl IntoJava for I18nCodeGenerator {
             .left_hand
             .name
             .replace(to_constant);
-        lines.push_without_terminator("\tstatic {");
+        lines.push_without_terminator(format!("{IDENT}static {{"));
         for InsertSupportLanguageListCall {
             language_iso639_code,
             iso639_entry,
@@ -443,9 +443,9 @@ impl IntoJava for I18nCodeGenerator {
                 raw_args_name: vec![constructed],
                 ..Default::default()
             };
-            lines.push(format!("\t\t{}", call_add_support_language.into_java()));
+            lines.push(format!("{IDENT}{IDENT}{}", call_add_support_language.into_java()));
         }
-        lines.push_without_terminator("\t}").next_line_if_true(true);
+        lines.push_without_terminator(format!("{IDENT}}}")).next_line_if_true(true);
 
         // render keys constants
         let mut keys_class = DataStruct {

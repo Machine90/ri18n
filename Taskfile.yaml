@@ -1,0 +1,23 @@
+version: '3'
+
+tasks:
+  build:
+    dir: '{{.USER_WORKING_DIR}}'
+    cmds:
+      - cross build --release --target x86_64-unknown-linux-musl
+      - cross build --release --target aarch64-apple-darwin
+      - cargo build --release
+      - mkdir dist/darwin dist/windows dist/linux
+      - cp target/aarch64-apple-darwin/release/ri18n dist/darwin
+      - cp target/x86_64-unknown-linux-musl/release/ri18n dist/linux
+      - cp target/release/ri18n.exe dist/windows
+
+  ri18n:
+    desc: Read and generate I18n util on {{OS}}
+    platforms: [linux, windows, darwin]
+    vars:
+      PROJECT: dist
+    cmds:
+      - mkdir {{.PROJECT}}/i18n/java {{.PROJECT}}/i18n/rust
+      - ./tools/{{OS}}/ri18n -s tests/data/i18n -t {{.PROJECT}}/i18n/java -p com.ri18n java
+      - ./tools/{{OS}}/ri18n -s tests/data/i18n -t {{.PROJECT}}/i18n/rust rust

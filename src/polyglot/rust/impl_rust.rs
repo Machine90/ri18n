@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     common::{
-        code_lines::CodeLines,
+        code_lines::{CodeLines, IDENT},
         constants::{
             ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
         },
@@ -128,7 +128,7 @@ impl IntoRust for DataStruct {
                 _ => "".to_string(),
             };
             let type_name = field.r#type.into_rust(settings);
-            lines.push(format!("\t{modifier}{}: {type_name}", field_name));
+            lines.push(format!("{IDENT}{modifier}{}: {type_name}", field_name));
         }
         lines.push_without_terminator("}");
         lines.generate()
@@ -150,7 +150,7 @@ impl IntoRustConstruct for DataStruct {
                 panic!("Failed to construct method {name}, fields mismatch");
             }
             let arg_name = arg.replace(to_snake_case);
-            lines.push(format!("\t{}: {}.to_string()", arg_name, arg_name));
+            lines.push(format!("{IDENT}{}: {}.to_string()", arg_name, arg_name));
         }
         lines.push_without_terminator("}");
         lines.generate()
@@ -204,7 +204,7 @@ impl IntoRust for Module {
         let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
         lines.push_without_terminator(format!("{modifier}mod {name} {{"));
         for statement in statements {
-            lines.push(format!("\t{}", statement.into_rust(settings)));
+            lines.push(format!("{IDENT}{}", statement.into_rust(settings)));
         }
         lines.push_without_terminator("}");
         lines.generate()
@@ -227,12 +227,12 @@ impl IntoRust for I18nSwitch {
         for I18nEntry { key, value } in entries {
             let key = key.replace(".", "_");
             lines.push_without_terminator(format!(
-                "\t{CONSTANTS_NAME_KEY}::{} => \"{}\",",
+                "{IDENT}{CONSTANTS_NAME_KEY}::{} => \"{}\",",
                 Naming::new(key).replace(to_constant),
                 value.replace(rust_matcher)
             ));
         }
-        lines.push_without_terminator(format!("\t_ => return None,"));
+        lines.push_without_terminator(format!("{IDENT}_ => return None,"));
         lines
             .push_without_terminator("}")
             .push(".to_string()")
@@ -255,12 +255,12 @@ impl IntoRust for LanguageMatcher {
         ));
         for (language, fn_match_entries_call) in language_to_fn_match_entries {
             lines.push_without_terminator(format!(
-                "\t\"{language}\" => {},",
+                "{IDENT}\"{language}\" => {},",
                 fn_match_entries_call.into_rust(settings)
             ));
         }
         lines
-            .push_without_terminator(format!("\t_ => None,"))
+            .push_without_terminator(format!("{IDENT}_ => None,"))
             .push_without_terminator("}");
         lines.generate()
     }
@@ -524,14 +524,14 @@ fn method_list_support_language(
     .into_rust(settings);
     let mut lines = CodeLines::new(0, TERMINATOR);
     lines.push_without_terminator(format!("{method_definition} {{"));
-    lines.push_without_terminator("\t[");
+    lines.push_without_terminator(format!("{IDENT}["));
     for lang in support_language {
         let code = lang.language_iso639_code.clone();
         let cn_name = lang.iso639_entry.cn_name.to_string();
         let en_name = lang.iso639_entry.en_name.to_string();
         let native_name = lang.iso639_entry.native_name.to_string();
         lines.push_without_terminator(format!(
-            "\t\t(\"{code}\", \"{cn_name}\", \"{en_name}\", \"{native_name}\"),"
+            "{IDENT}{IDENT}(\"{code}\", \"{cn_name}\", \"{en_name}\", \"{native_name}\"),"
         ));
     }
     let args = vec![
@@ -547,14 +547,14 @@ fn method_list_support_language(
         .join(", ");
     let constructed = struct_support_language_list.construct_rust(3, args);
     lines
-        .push_without_terminator("\t]")
-        .push_without_terminator("\t.iter()")
-        .push_without_terminator("\t.map(")
-        .push_without_terminator(format!("\t\t|({arg_list})| {{"))
+        .push_without_terminator(format!("{IDENT}]"))
+        .push_without_terminator(format!("{IDENT}.iter()"))
+        .push_without_terminator(format!("{IDENT}.map("))
+        .push_without_terminator(format!("{IDENT}{IDENT}|({arg_list})| {{"))
         .push_without_terminator(constructed)
-        .push_without_terminator("\t\t}")
-        .push_without_terminator("\t)")
-        .push_without_terminator("\t.collect::<Vec<_>>()");
+        .push_without_terminator(format!("{IDENT}{IDENT}}}"))
+        .push_without_terminator(format!("{IDENT})"))
+        .push_without_terminator(format!("{IDENT}.collect::<Vec<_>>()"));
     lines.push_without_terminator("}");
     lines.generate()
 }
