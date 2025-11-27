@@ -12,7 +12,7 @@ To compile cross platform, we should install [cross](https://github.com/cross-rs
 
 After installing `cross` application, we should pull and run docker images to guarantee that `Ri18n` can be compiled cross difference system:
 * `docker pull freeznet/aarch64-apple-darwin-cross:11.3.1`
-* `docker pull freeznet/x86_64-apple-darwin-cross:11.3.1`
+* `docker pull freeznet/x86_64-unknown-linux-musl-cross:11.3.1`
 
 and also need to install rustup targets:
 * `rustup target add aarch64-apple-darwin`

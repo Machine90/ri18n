@@ -7,7 +7,7 @@ tasks:
       - cross build --release --target x86_64-unknown-linux-musl
       - cross build --release --target aarch64-apple-darwin
       - cargo build --release
-      - mkdir dist/darwin dist/windows dist/linux
+      - mkdir dist dist/darwin dist/windows dist/linux
       - cp target/aarch64-apple-darwin/release/ri18n dist/darwin
       - cp target/x86_64-unknown-linux-musl/release/ri18n dist/linux
       - cp target/release/ri18n.exe dist/windows
@@ -18,6 +18,6 @@ tasks:
     vars:
       PROJECT: dist
     cmds:
-      - mkdir {{.PROJECT}}/i18n/java {{.PROJECT}}/i18n/rust
-      - ./tools/{{OS}}/ri18n -s tests/data/i18n -t {{.PROJECT}}/i18n/java -p com.ri18n java
-      - ./tools/{{OS}}/ri18n -s tests/data/i18n -t {{.PROJECT}}/i18n/rust rust
+      - mkdir {{.PROJECT}}/i18n {{.PROJECT}}/i18n/java {{.PROJECT}}/i18n/rust
+      - ./dist/{{OS}}/ri18n -s tests/data/i18n -t dist/i18n/java -p com.ri18n java
+      - ./dist/{{OS}}/ri18n -s tests/data/i18n -t dist/i18n/rust rust

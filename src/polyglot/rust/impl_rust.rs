@@ -144,13 +144,17 @@ impl IntoRustConstruct for DataStruct {
             .collect::<HashSet<_>>();
 
         let mut lines = CodeLines::new(base_ident, Some(","));
+        for arg in args.iter() {
+            let arg_name = arg.replace(to_snake_case);
+            lines.push_without_terminator(format!("let {arg_name} = {arg_name}.to_string();"));
+        }
         lines.push_without_terminator(format!("{name} {{"));
         for arg in args {
             if !fields_name.contains(&arg) {
                 panic!("Failed to construct method {name}, fields mismatch");
             }
             let arg_name = arg.replace(to_snake_case);
-            lines.push(format!("{IDENT}{}: {}.to_string()", arg_name, arg_name));
+            lines.push(format!("{IDENT}{}", arg_name));
         }
         lines.push_without_terminator("}");
         lines.generate()
@@ -218,7 +222,9 @@ impl IntoRust for I18nSwitch {
             entries,
             base_ident,
         } = self;
-        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        let ident = *base_ident - 1;
+        let chars_of_ident = ident * IDENT.len() as u8;
+        let mut lines = CodeLines::new(ident, TERMINATOR);
         const RETURN_VALUE_NAME: &str = "content";
         lines.push_without_terminator(format!(
             "let {RETURN_VALUE_NAME} = match {} {{",
@@ -226,11 +232,22 @@ impl IntoRust for I18nSwitch {
         ));
         for I18nEntry { key, value } in entries {
             let key = key.replace(".", "_");
-            lines.push_without_terminator(format!(
+            let case = format!(
                 "{IDENT}{CONSTANTS_NAME_KEY}::{} => \"{}\",",
-                Naming::new(key).replace(to_constant),
+                Naming::new(&key).replace(to_constant),
                 value.replace(rust_matcher)
-            ));
+            );
+            if case.chars().count() + chars_of_ident as usize >= 100 {
+                lines
+                    .push_without_terminator(format!(
+                        "{IDENT}{CONSTANTS_NAME_KEY}::{} => {{",
+                        Naming::new(key).replace(to_constant)
+                    ))
+                    .push_without_terminator(format!("{IDENT}{IDENT}\"{}\"", value.replace(rust_matcher)))
+                    .push_without_terminator(format!("{IDENT}}}"));
+            } else {
+                lines.push_without_terminator(case);
+            }
         }
         lines.push_without_terminator(format!("{IDENT}_ => return None,"));
         lines
@@ -337,8 +354,7 @@ fn macros_get_by_locale(module_path: String, method: &Method) -> String {
     let module_path = format!("crate::{module_path}");
 
     format!(
-        r#"
-#[macro_export]
+        r#"#[macro_export]
 macro_rules! {macros_name} {{
     ($code:expr, $key:expr) => {{
         ${module_path}::{fn_name_get_locale}($code, $key)
@@ -545,15 +561,13 @@ fn method_list_support_language(
         .map(|n| n.replace(to_snake_case))
         .collect::<Vec<_>>()
         .join(", ");
-    let constructed = struct_support_language_list.construct_rust(3, args);
+    let constructed = struct_support_language_list.construct_rust(2, args);
     lines
         .push_without_terminator(format!("{IDENT}]"))
         .push_without_terminator(format!("{IDENT}.iter()"))
-        .push_without_terminator(format!("{IDENT}.map("))
-        .push_without_terminator(format!("{IDENT}{IDENT}|({arg_list})| {{"))
+        .push_without_terminator(format!("{IDENT}.map(|({arg_list})| {{"))
         .push_without_terminator(constructed)
-        .push_without_terminator(format!("{IDENT}{IDENT}}}"))
-        .push_without_terminator(format!("{IDENT})"))
+        .push_without_terminator(format!("{IDENT}}})"))
         .push_without_terminator(format!("{IDENT}.collect::<Vec<_>>()"));
     lines.push_without_terminator("}");
     lines.generate()
