@@ -49,13 +49,13 @@ pub mod keys {
 
 
 #[macro_export]
-macro_rules! get_by_locale {
+macro_rules! translate_with_args {
     ($code:expr, $key:expr) => {
-        $crate::Ri18n::get_by_locale($code, $key)
+        $crate::ri18n::translate($code, $key)
     };
     ($code:expr, $key:expr, $($values:tt)*) => {{
         #[allow(unused_imports)] use formatx::formatx;
-        if let Some(template) = $crate::Ri18n::get_by_locale($code, $key) {
+        if let Some(template) = $crate::ri18n::translate($code, $key) {
             Some(formatx!(template, $($values)*))
         } else {
             None
@@ -63,7 +63,7 @@ macro_rules! get_by_locale {
     }};
 }
 
-pub fn get_by_locale(iso_639_code: &str, translation_key: &str) -> Option<String> {
+pub fn translate(iso_639_code: &str, translation_key: &str) -> Option<String> {
 	match iso_639_code {
 		"ar" => match_entries_ar(translation_key),
 		"de" => match_entries_de(translation_key),

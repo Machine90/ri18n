@@ -17,8 +17,8 @@ public class Ri18n {
 
 	}
 
-	public static String getByLocale(String iso639Code, String translationKey, Object... args) {
-		String translationKeyTemplate = getByLocale(iso639Code, translationKey);
+	public static String translateWithArgs(String iso639Code, String translationKey, Object... args) {
+		String translationKeyTemplate = translate(iso639Code, translationKey);
 		if (translationKeyTemplate == null || translationKeyTemplate.isEmpty()) {
 			return null;
 		}
@@ -55,7 +55,7 @@ public class Ri18n {
 
 	}
 
-	public static String getByLocale(String iso639Code, String translationKey) {
+	public static String translate(String iso639Code, String translationKey) {
 		if ("ar".equals(iso639Code)) {
 			return matchEntriesAr(translationKey);
 		}

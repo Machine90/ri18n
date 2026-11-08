@@ -2,8 +2,8 @@ use std::hash::Hash;
 
 use crate::{
     common::constants::{
-        ARG_NAME_ARGS, ARG_NAME_I18N_KEY, ARG_NAME_ISO639, METHOD_NAME_GET_BY_LOCALE,
-        METHOD_NAME_GET_BY_LOCALE_WITH_ARGS,
+        ARG_NAME_ARGS, ARG_NAME_I18N_KEY, ARG_NAME_ISO639, METHOD_NAME_TRANSLATE,
+        METHOD_NAME_TRANSLATE_WITH_ARGS,
     },
     polyglot::common::{
         Naming,
@@ -15,11 +15,18 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub enum I18nMethodType {
-    GetByLocale {
+    /// Plain locale+key lookup. Method name: `translate`.
+    Translate {
         language_matcher: LanguageMatcher,
     },
-    GetByLocaleWithArgs {
-        fn_name_get_locale: Naming,
+    /// Lookup then format with variadic args.
+    ///
+    /// IR method name is always `translate_with_args` (distinct from plain lookup).
+    /// Backend strategies:
+    /// - Java: emit a real static method with `Object... args`
+    /// - Rust: emit `translate_with_args!` macro when formatx is enabled; otherwise omit
+    TranslateWithArgs {
+        fn_name_translate: Naming,
         arg_name_iso639: Naming,
         arg_name_i18n_key: Naming,
         arg_name_args: Naming,
@@ -54,12 +61,12 @@ pub struct Method {
 }
 
 impl Method {
-    pub fn new_method_get_by_locale(
+    pub fn new_method_translate(
         arg_name_iso639: Option<&str>,
         arg_name_i18n_key: Option<&str>,
         base_ident: u8,
     ) -> Self {
-        let method_name = METHOD_NAME_GET_BY_LOCALE;
+        let method_name = METHOD_NAME_TRANSLATE;
         let arg_name_iso639 = arg_name_iso639.unwrap_or(ARG_NAME_ISO639);
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         Self {
@@ -82,7 +89,7 @@ impl Method {
                 is_static: true,
             },
             code: I18nMethodContent {
-                tp: I18nMethodType::GetByLocale {
+                tp: I18nMethodType::Translate {
                     language_matcher: LanguageMatcher {
                         arg_name_iso639: Naming::new(arg_name_iso639),
                         language_to_fn_match_entries: Default::default(),
@@ -95,13 +102,13 @@ impl Method {
         }
     }
 
-    pub fn new_method_get_by_locale_with_args(
+    pub fn new_method_translate_with_args(
         arg_name_iso639: Option<&str>,
         arg_name_i18n_key: Option<&str>,
         arg_name_args: Option<&str>,
         base_ident: u8,
     ) -> Self {
-        let method_name = METHOD_NAME_GET_BY_LOCALE_WITH_ARGS;
+        let method_name = METHOD_NAME_TRANSLATE_WITH_ARGS;
         let arg_name_iso639 = arg_name_iso639.unwrap_or(ARG_NAME_ISO639);
         let arg_name_i18n_key = arg_name_i18n_key.unwrap_or(ARG_NAME_I18N_KEY);
         let arg_name_args = arg_name_args.unwrap_or(ARG_NAME_ARGS);
@@ -120,7 +127,7 @@ impl Method {
                         ..Default::default()
                     },
                     Field {
-                        r#type: Types::ListAny,
+                        r#type: Types::VarArgs,
                         name: Naming::new(arg_name_args),
                         ..Default::default()
                     },
@@ -130,8 +137,8 @@ impl Method {
                 is_static: true,
             },
             code: I18nMethodContent {
-                tp: I18nMethodType::GetByLocaleWithArgs {
-                    fn_name_get_locale: Naming::new(METHOD_NAME_GET_BY_LOCALE),
+                tp: I18nMethodType::TranslateWithArgs {
+                    fn_name_translate: Naming::new(METHOD_NAME_TRANSLATE),
                     arg_name_iso639: Naming::new(arg_name_iso639),
                     arg_name_i18n_key: Naming::new(arg_name_i18n_key),
                     arg_name_args: Naming::new(arg_name_args),
@@ -184,9 +191,9 @@ impl Method {
         }
     }
 
-    pub fn insert_get_by_locale(&mut self, language_iso639_code: &str, fn_match_entries: &Method) {
+    pub fn insert_translate(&mut self, language_iso639_code: &str, fn_match_entries: &Method) {
         match &mut self.code.tp {
-            I18nMethodType::GetByLocale { language_matcher } => {
+            I18nMethodType::Translate { language_matcher } => {
                 language_matcher.insert(language_iso639_code, fn_match_entries);
             }
             _ => (),

@@ -103,7 +103,9 @@ impl IntoRust for Types {
             }
             Types::Custom(tp) => tp.to_string(),
             Types::Void => "()".to_string(),
-            Types::ListAny => unreachable!("rust doesn't support ..args as method input"),
+            Types::VarArgs => unreachable!(
+                "VarArgs is not a Rust fn parameter; emit translate_with_args! macro instead"
+            ),
             Types::Option(types) => format!("Option<{}>", types.into_rust(settings)),
         };
         code
@@ -271,13 +273,14 @@ impl IntoRust for I18nMethodContent {
         let Self { tp, base_ident } = self;
         let mut lines = CodeLines::new(*base_ident - 1, None);
         match tp {
-            I18nMethodType::GetByLocale { language_matcher } => {
+            I18nMethodType::Translate { language_matcher } => {
                 lines.extend(language_matcher.into_rust(settings));
             }
             I18nMethodType::MatchEntries { match_entries } => {
                 lines.extend(match_entries.into_rust(settings));
             }
-            I18nMethodType::GetByLocaleWithArgs { .. } | I18nMethodType::Empty => (),
+            // Body is unused for with-args: Rust emits a macro, not a fn body.
+            I18nMethodType::TranslateWithArgs { .. } | I18nMethodType::Empty => (),
         };
         lines.generate()
     }
@@ -316,24 +319,24 @@ impl IntoRust for MethodCall {
     }
 }
 
-fn macros_get_by_locale(module_path: String, method: &Method) -> String {
-    // macros_name: &Naming, fn_name_get_locale: &Naming
+/// Rust strategy for `TranslateWithArgs`: emit `translate_with_args!`
+/// that delegates lookup to `translate` and formats via `formatx`.
+fn macros_translate_with_args(module_path: String, method: &Method) -> String {
     let Method {
         definition, code, ..
     } = method;
-    if !matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
+    if !matches!(&code.tp, I18nMethodType::TranslateWithArgs { .. }) {
         return format!("");
     }
-    // generate macros
     let macros_name = &definition.name;
-    let fn_name_get_locale = match &code.tp {
-        I18nMethodType::GetByLocaleWithArgs {
-            fn_name_get_locale, ..
-        } => fn_name_get_locale,
+    let fn_name_translate = match &code.tp {
+        I18nMethodType::TranslateWithArgs {
+            fn_name_translate, ..
+        } => fn_name_translate,
         _ => unreachable!(),
     };
     let macros_name = macros_name.replace(to_snake_case);
-    let fn_name_get_locale = fn_name_get_locale.replace(to_snake_case);
+    let fn_name_translate = fn_name_translate.replace(to_snake_case);
     let module_path = format!("crate::{module_path}");
 
     format!(
@@ -341,11 +344,11 @@ fn macros_get_by_locale(module_path: String, method: &Method) -> String {
 #[macro_export]
 macro_rules! {macros_name} {{
     ($code:expr, $key:expr) => {{
-        ${module_path}::{fn_name_get_locale}($code, $key)
+        ${module_path}::{fn_name_translate}($code, $key)
     }};
     ($code:expr, $key:expr, $($values:tt)*) => {{{{
         #[allow(unused_imports)] use formatx::formatx;
-        if let Some(template) = ${module_path}::{fn_name_get_locale}($code, $key) {{
+        if let Some(template) = ${module_path}::{fn_name_translate}($code, $key) {{
             Some(formatx!(template, $($values)*))
         }} else {{
             None
@@ -396,8 +399,8 @@ impl IntoRust for Method {
             code,
             base_ident,
         } = self;
-        if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
-            // generate macros
+        if matches!(&code.tp, I18nMethodType::TranslateWithArgs { .. }) {
+            // Contract: with-args is a macro in Rust, not a function.
             return format!("");
         }
 
@@ -415,11 +418,11 @@ impl IntoRust for I18nCodeGenerator {
     fn into_rust(&self, settings: &RustSettings) -> String {
         let Self {
             struct_support_language_list,
-            fn_get_by_locale_with_args,
+            fn_translate_with_args,
             const_support_languages,
             call_insert_support_language_list,
             const_i18n_keys,
-            fn_get_by_locale,
+            fn_translate,
             fn_match_entries,
             package,
             name,
@@ -468,7 +471,7 @@ impl IntoRust for I18nCodeGenerator {
             .extend(key_module.into_rust(settings))
             .next_line_if_true(true);
 
-        if let Some(fn_get_by_locale_with_args) = fn_get_by_locale_with_args {
+        if let Some(fn_translate_with_args) = fn_translate_with_args {
             if settings.formatx_enable {
                 let module_path = package
                     .as_ref()
@@ -486,15 +489,15 @@ impl IntoRust for I18nCodeGenerator {
                             .expect("Failed to parse path")
                             .into_rust(settings)
                     });
-                // generate `get_by_locale!()` macros
-                let codes = macros_get_by_locale(module_path, &fn_get_by_locale_with_args);
+                // generate `translate_with_args!` macro (Rust with-args strategy)
+                let codes = macros_translate_with_args(module_path, &fn_translate_with_args);
                 lines.extend(codes).next_line_if_true(true);
             }
         }
 
-        // generate method `get_by_locale()`
-        if let Some(fn_get_by_locale) = fn_get_by_locale {
-            let codes = fn_get_by_locale.into_rust(settings);
+        // generate method `translate()`
+        if let Some(fn_translate) = fn_translate {
+            let codes = fn_translate.into_rust(settings);
             lines.extend(codes).next_line_if_true(true);
         }
 

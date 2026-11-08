@@ -49,8 +49,8 @@ pub struct I18nCodeGenerator {
     pub call_insert_support_language_list: BTreeSet<InsertSupportLanguageListCall>,
     pub const_support_languages: BTreeSet<Statement>,
     pub const_i18n_keys: BTreeSet<Statement>,
-    pub fn_get_by_locale: Option<Method>,
-    pub fn_get_by_locale_with_args: Option<Method>,
+    pub fn_translate: Option<Method>,
+    pub fn_translate_with_args: Option<Method>,
     pub fn_match_entries: BTreeMap<String, Method>,
 }
 
@@ -84,9 +84,9 @@ impl I18nCodeGenerator {
                     1,
                 ));
             fn_match_entries.insert_match_entries(key, value);
-            self.fn_get_by_locale
+            self.fn_translate
                 .as_mut()
-                .map(|v| v.insert_get_by_locale(language_iso639_code, &fn_match_entries));
+                .map(|v| v.insert_translate(language_iso639_code, &fn_match_entries));
         }
 
         let const_i18n_key = Statement {

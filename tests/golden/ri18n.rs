@@ -47,7 +47,7 @@ pub mod keys {
 	pub const HUMAN_WOMAN_NAME: &str = "human.woman.name";
 }
 
-pub fn get_by_locale(iso_639_code: &str, translation_key: &str) -> Option<String> {
+pub fn translate(iso_639_code: &str, translation_key: &str) -> Option<String> {
 	match iso_639_code {
 		"ar" => match_entries_ar(translation_key),
 		"de" => match_entries_de(translation_key),

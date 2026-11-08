@@ -1,5 +1,7 @@
-pub const METHOD_NAME_GET_BY_LOCALE: &'static str = "get_by_locale";
-pub const METHOD_NAME_GET_BY_LOCALE_WITH_ARGS: &'static str = "get_by_locale";
+pub const METHOD_NAME_TRANSLATE: &'static str = "translate";
+/// Distinct from [`METHOD_NAME_TRANSLATE`] so languages without overloading
+/// (and Rust macros) do not collide with the plain lookup API.
+pub const METHOD_NAME_TRANSLATE_WITH_ARGS: &'static str = "translate_with_args";
 pub const ARG_NAME_I18N_KEY: &'static str = "translation_key";
 pub const ARG_NAME_ISO639: &'static str = "iso639_code";
 pub const ARG_NAME_ARGS: &'static str = "args";

@@ -1,6 +1,6 @@
 package com.example.ri18n;
 
-public class Ri18n {
+public class Ri18nConstantsOnly {
 
 	public static class SupportLanguage {
 		public String cnName;

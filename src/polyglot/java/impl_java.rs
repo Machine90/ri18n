@@ -61,7 +61,7 @@ impl IntoJava for Types {
             }
             Types::Custom(tp) => tp.to_string(),
             Types::Void => "void".to_string(),
-            Types::ListAny => "Object...".to_string(),
+            Types::VarArgs => "Object...".to_string(),
         }
     }
 }
@@ -143,22 +143,22 @@ impl IntoJava for I18nMethodContent {
         let Self { tp, base_ident } = self;
         let mut lines = CodeLines::new(*base_ident, None);
         match tp {
-            I18nMethodType::GetByLocale { language_matcher } => {
+            I18nMethodType::Translate { language_matcher } => {
                 lines
                     .extend(language_matcher.into_java())
                     .push(format!("return null"));
             }
-            I18nMethodType::GetByLocaleWithArgs {
+            I18nMethodType::TranslateWithArgs {
                 arg_name_iso639,
                 arg_name_i18n_key,
                 arg_name_args,
-                fn_name_get_locale,
+                fn_name_translate,
             } => {
                 let template = format!("{}{}", arg_name_i18n_key.replace(to_camelcase), "Template");
                 lines
                     .push(format!(
                         "String {template} = {}({}, {})",
-                        fn_name_get_locale.replace(to_camelcase),
+                        fn_name_translate.replace(to_camelcase),
                         arg_name_iso639.replace(to_camelcase),
                         arg_name_i18n_key.replace(to_camelcase)
                     ))
@@ -373,8 +373,8 @@ impl IntoJava for I18nCodeGenerator {
             package,
             name,
             struct_support_language_list,
-            fn_get_by_locale,
-            fn_get_by_locale_with_args,
+            fn_translate,
+            fn_translate_with_args,
             const_support_languages,
             stat_build_support_language_list,
             call_insert_support_language_list,
@@ -395,9 +395,9 @@ impl IntoJava for I18nCodeGenerator {
             .extend(struct_support_language_list.into_java())
             .next_line_if_true(true);
 
-        if let Some(fn_get_by_locale_with_args) = fn_get_by_locale_with_args {
+        if let Some(fn_translate_with_args) = fn_translate_with_args {
             lines
-                .extend(fn_get_by_locale_with_args.into_java())
+                .extend(fn_translate_with_args.into_java())
                 .next_line_if_true(true);
         }
 
@@ -458,9 +458,9 @@ impl IntoJava for I18nCodeGenerator {
             keys_class.statements.insert(const_key.clone());
         }
         lines.extend(keys_class.into_java()).next_line_if_true(true);
-        if let Some(fn_get_by_locale) = fn_get_by_locale {
+        if let Some(fn_translate) = fn_translate {
             lines
-                .extend(fn_get_by_locale.into_java())
+                .extend(fn_translate.into_java())
                 .next_line_if_true(true);
         }
 
