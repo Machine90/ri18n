@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     common::iso639_codes::{Iso639Entry, iso639_map},
@@ -51,7 +51,7 @@ pub struct I18nCodeGenerator {
     pub const_i18n_keys: BTreeSet<Statement>,
     pub fn_get_by_locale: Option<Method>,
     pub fn_get_by_locale_with_args: Option<Method>,
-    pub fn_match_entries: HashMap<String, Method>,
+    pub fn_match_entries: BTreeMap<String, Method>,
 }
 
 impl I18nCodeGenerator {

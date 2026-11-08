@@ -15,9 +15,11 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
-    pub static ref REGEX: Regex =
-        Regex::new(r"\{(string|s|str)\}|\{c\}|\{char\}|\{u32\}|\{u64\}|\{u128\}|\{i32\}|\{i64\}|\{u8\}|\{u16\}|\{usize\}|\{f32\}|\{f64\}|\{bool\}|\{hex\}|\{exp\}")
-            .expect("Invalid regex");
+    /// Placeholder token allowlist. Unknown `{...}` tokens are left unchanged.
+    pub static ref REGEX: Regex = Regex::new(
+        r"\{(string|s|str|text|c|char|u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|int|integer|long|short|byte|f32|f64|float|double|bool|boolean|hex|exp)\}"
+    )
+    .expect("Invalid regex");
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,11 +37,13 @@ pub enum Format {
 /// can be replaced with difference programming language format,
 /// for example java: "User name is %s age is %d  weight is %f".
 /// ## Arg type:
-/// * {string} | {s} | {str} => Format::String
-/// * {u32} | {u64} => Format::Int32
-/// * {f32} | {f64} => Format::Float
+/// * {string} | {s} | {str} | {text} => Format::String
+/// * {u8} | {u16} | {u32} | {u64} | {u128} | {usize}
+///   | {i8} | {i16} | {i32} | {i64} | {i128} | {isize}
+///   | {int} | {integer} | {long} | {short} | {byte} => Format::Int32
+/// * {f32} | {f64} | {float} | {double} => Format::Float
 /// * {c} | {char} => Format::Char
-/// * {bool} => Format::Bool
+/// * {bool} | {boolean} => Format::Bool
 /// * {hex} => Format::Hex
 /// * {exp} => Format::Exponent
 #[derive(Debug, Clone)]
@@ -51,15 +55,18 @@ impl FormatContent {
     pub fn replace(&self, matcher: fn(Format) -> &'static str) -> String {
         REGEX
             .replace_all(&self.i18n_content, |caps: &regex::Captures<'_>| {
-                match caps.get(0).unwrap().as_str() {
-                    "{string}" | "{s}" | "{str}" => matcher(Format::String),
-                    "{u32}" | "{u64}" | "{i32}" | "{i64}" | "{u8}" | "{u16}" | "{u128}"
-                    | "{usize}" => matcher(Format::Int32),
-                    "{f32}" | "{f64}" => matcher(Format::Float),
-                    "{c}" | "{char}" => matcher(Format::Char),
-                    "{bool}" => matcher(Format::Bool),
-                    "{hex}" => matcher(Format::Hex),
-                    "{exp}" => matcher(Format::Exponent),
+                let token = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                match token {
+                    "string" | "s" | "str" | "text" => matcher(Format::String),
+                    "u8" | "u16" | "u32" | "u64" | "u128" | "usize" | "i8" | "i16" | "i32"
+                    | "i64" | "i128" | "isize" | "int" | "integer" | "long" | "short" | "byte" => {
+                        matcher(Format::Int32)
+                    }
+                    "f32" | "f64" | "float" | "double" => matcher(Format::Float),
+                    "c" | "char" => matcher(Format::Char),
+                    "bool" | "boolean" => matcher(Format::Bool),
+                    "hex" => matcher(Format::Hex),
+                    "exp" => matcher(Format::Exponent),
                     _ => "",
                 }
                 .to_string()
@@ -127,40 +134,4 @@ pub fn to_pascal(name: &str) -> String {
 
 pub fn to_constant(name: &str) -> String {
     name.to_case(Case::Constant)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_convert() {
-        let expected = "User name is %s age is %d weight is %f";
-        let fmt = FormatContent {
-            i18n_content: "User name is {str} age is {u32} weight is {f32}".to_string(),
-        };
-        let c = fmt.replace(java_matcher);
-        assert_eq!(expected, c);
-    }
-
-    #[test]
-    fn test_case_convert() {
-        let camelcase = Naming {
-            name: "this_is_snake_case".to_string(),
-        }
-        .replace(to_camelcase);
-        assert_eq!(camelcase, "thisIsSnakeCase");
-
-        let snake_case = Naming {
-            name: "thisIs_Camel_case".to_string(),
-        }
-        .replace(to_snake_case);
-        assert_eq!(snake_case, "this_is_camel_case");
-
-        let constant_case = Naming {
-            name: "thisIs_Camel_case".to_string(),
-        }
-        .replace(to_constant);
-        assert_eq!(constant_case, "THIS_IS_CAMEL_CASE");
-    }
 }

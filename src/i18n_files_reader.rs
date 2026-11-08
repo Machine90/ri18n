@@ -317,13 +317,30 @@ fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
-    #[test]
-    fn test() {
-        let v = read_i18n_entries_from_toml(
-            format!("C:\\Users\\machi\\workspace\\tools\\ri18n\\tests\\data\\i18n_en.toml").into(),
-        )
-        .unwrap();
-        println!("{v:#?}");
+    use rstest::rstest;
+
+    fn fixture(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data/i18n")
+            .join(name)
+    }
+
+    #[rstest]
+    #[test_log::test]
+    #[case::de("i18n_DE.properties", true, Some("de"))]
+    #[case::en("i18n_en.yaml", true, Some("en"))]
+    #[case::unknown("i18n_unknown.toml", false, None)]
+    fn test_language_hint_from_filename(
+        #[case] file: &str,
+        #[case] expect_ok: bool,
+        #[case] expected: Option<&str>,
+    ) {
+        let result = get_language_hint_from_filename(&fixture(file));
+        assert_eq!(result.is_ok(), expect_ok);
+        if let Some(expected) = expected {
+            assert_eq!(result.unwrap(), expected);
+        }
     }
 }
