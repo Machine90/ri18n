@@ -4,13 +4,13 @@
 
 **Ri18n** turns i18n resource files into typed source code for your app.
 
-You keep translations in JSON / YAML / TOML / `.properties`. Ri18n emits a single Java or Rust file with constants, a supported-language list, and `translate(locale, key)` lookup — so call sites use compile-time keys instead of raw strings.
+You keep translations in JSON / YAML / TOML / `.properties`. Ri18n emits a single Java, Rust, or TypeScript file with constants, a supported-language list, and `translate(locale, key)` lookup — so call sites use compile-time keys instead of raw strings.
 
 | | |
 |---|---|
 | **Inputs** | `.json` · `.yaml` / `.yml` · `.toml` · `.properties` |
-| **Targets** | Java · Rust |
-| **Version** | 0.1.2 |
+| **Targets** | Java · Rust · TypeScript |
+| **Version** | 0.2.0 |
 
 ---
 
@@ -26,11 +26,14 @@ ri18n -s path/to/i18n -t out/ -n ri18n rust
 # Rust with formatx macro for formatted strings
 ri18n -s path/to/i18n -t out/ -n ri18n rust --formatx-enable
 
+# TypeScript
+ri18n -s path/to/i18n -t out/ -n Ri18n typescript
+
 # Constants / language list only
 ri18n -s path/to/i18n -t out/ -n Ri18nConstantsOnly -c java
 ```
 
-`-n` / `--name` is used **as-is** for the type name and file stem (e.g. Java → `Ri18n.java`, Rust → `ri18n.rs`). Choose a name that matches the target language’s conventions yourself.
+`-n` / `--name` is used **as-is** for the type name and file stem (e.g. Java → `Ri18n.java`, Rust → `ri18n.rs`, TypeScript → `Ri18n.ts`). Choose a name that matches the target language’s conventions yourself.
 
 ---
 
@@ -43,7 +46,7 @@ ri18n -s path/to/i18n -t out/ -n Ri18nConstantsOnly -c java
 | `-n`, `--name` | Generated type / file stem (default: `Ri18n`) |
 | `-p`, `--package` | Optional package / module path: `com.a.b`, `com/a/b`, or `com::a::b` |
 | `-c`, `--constants-only` | Emit constants and support-language list only (no `translate` APIs) |
-| subcommand | `java` or `rust [--formatx-enable]` |
+| subcommand | `java` · `rust [--formatx-enable]` · `typescript` |
 
 Environment variables with the same names as long flags are also accepted (via clap `env`).
 
@@ -85,7 +88,7 @@ Typical output includes:
 | `SupportLanguage` + language list | Enumerate / validate supported locales |
 | `Iso639Codes` / `keys` constants | Typed locale codes and translation keys |
 | `translate(locale, key)` | Lookup template / string |
-| Formatted variant | Java: `translateWithArgs(...)` · Rust: `translate_with_args!` (needs `--formatx-enable` + [`formatx`](https://crates.io/crates/formatx)) |
+| Formatted variant | Java / TypeScript: `translateWithArgs(...)` · Rust: `translate_with_args!` (needs `--formatx-enable` + [`formatx`](https://crates.io/crates/formatx)) |
 
 ### Placeholders
 
@@ -100,7 +103,7 @@ Values may use typed placeholders; Ri18n rewrites them per target:
 | `{c}` `{char}` | char |
 | `{hex}` `{exp}` | hex / exponent |
 
-Java → `String.formatted` style (`%s`, `%d`, …). Rust + formatx → `{}`.
+Java → `String.formatted` style (`%s`, `%d`, …). TypeScript → runtime `formatTemplate`. Rust + formatx → `{}`.
 
 ---
 
@@ -121,17 +124,20 @@ cargo nextest run
 UPDATE_GOLDEN=1 cargo nextest run -E 'test(codegen)'   # refresh codegen snapshots
 ```
 
+Requires [Task](https://taskfile.dev/) (`brew install go-task` on macOS).
+
 ---
 
 ## Cross-compile
 
-Optional release builds with [cross](https://github.com/cross-rs/cross):
+Release binaries for macOS / Linux / Windows via `Taskfile.yml` (artifacts under `dist/<triple>/`):
 
 ```shell
-cargo install cross --git https://github.com/cross-rs/cross
-docker pull freeznet/aarch64-apple-darwin-cross:11.3.1
-docker pull freeznet/x86_64-apple-darwin-cross:11.3.1
-rustup target add aarch64-apple-darwin
-rustup target add x86_64-unknown-linux-musl
-cross build --release --target x86_64-apple-darwin
+task setup        # rustup targets + host tools (zig / mingw on macOS, cross elsewhere)
+task build:all    # macOS + Linux musl + Windows gnu
+task build:macos  # Apple Silicon + Intel
+task build:linux  # x86_64 / aarch64 musl
+task build:windows
 ```
+
+On **macOS**, Linux targets use [`cargo-zigbuild`](https://github.com/rust-cross/cargo-zigbuild) and Windows uses `mingw-w64` (no Docker required). On **Linux / Windows** hosts, non-native targets still use [`cross`](https://github.com/cross-rs/cross) + Docker; see `Cross.toml` for Apple image notes.

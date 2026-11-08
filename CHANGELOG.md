@@ -10,6 +10,11 @@
 - 加固 `I18nFileReader`：缺失路径、无法识别语言、空目录、YAML 解析失败等均有明确错误；同 locale 冲突 key 失败、同值重复可接受；跨 locale key 不一致时告警
 - 稳定 codegen 输出顺序（`fn_match_entries` 等改用有序集合）；修复 `Package` 路径解析（`.` / `/` / `::`）；Rust `translate_with_args` 宏改为 `include_str!` 模板
 - 补充 README（中/英）用法说明；增加 Java / Rust / TypeScript golden 快照与 reader / package / naming 等单元测试
+- 新增 `Taskfile.yml` 简化多平台发布构建（`task build:all`）
+    1. macOS 主机：Apple 目标用原生 `cargo`；Linux musl 用 `cargo-zigbuild`；Windows gnu 用 `mingw-w64`
+    2. Linux / Windows 主机：非本机目标仍走 `cross` + Docker
+    3. `task setup` 自动安装 rustup target 与对应工具链依赖
+- 整理 `Cross.toml`：注明 Linux/Windows 使用 `ghcr.io/cross-rs` 默认镜像即可；Apple 目标因 SDK 授权仅保留社区镜像说明（本机 Mac 优先不用 cross）
 
 #### Breaking Change:
 0.2.0

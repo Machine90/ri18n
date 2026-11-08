@@ -1,4 +1,18 @@
+# Linux / Windows (gnu|musl): do not set `image` — use official
+#   ghcr.io/cross-rs/<target>:<cross-version>
+# Those are the best-maintained images; custom mirrors are usually worse.
+#
+# Apple darwin: cross-rs cannot ship images (Apple SDK license).
+# Prefer native `cargo build` on a Mac host (see Taskfile).
+# If you must cross-compile apple from Linux/Windows, pick one of:
+#   1. Build your own from https://github.com/cross-rs/cross-toolchains
+#      (SDK 12.3 recommended), then:
+#        image = "ghcr.io/cross-rs/aarch64-apple-darwin-cross:local"
+#   2. Community image below (convenient; SDK redistribution is a grey area,
+#      and the tag may lag behind current toolchains).
+
 [target.x86_64-apple-darwin]
 image = "freeznet/x86_64-apple-darwin-cross:11.3.1"
+
 [target.aarch64-apple-darwin]
 image = "freeznet/aarch64-apple-darwin-cross:11.3.1"

@@ -2,7 +2,7 @@ use clap::{ArgAction, Parser, Subcommand};
 use enum_kinds::EnumKind;
 use std::path::PathBuf;
 
-#[derive(Subcommand, Clone, Debug, EnumKind, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Subcommand, EnumKind, PartialEq, Eq, Hash)]
 #[clap(rename_all = "kebab-case")]
 #[enum_kind(TargetKind, derive(Hash))]
 pub enum Target {

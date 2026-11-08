@@ -1,0 +1,144 @@
+version: "3"
+
+vars:
+  BIN: ri18n
+  DIST: dist
+  FLAGS: --release --bin {{.BIN}}
+
+# On macOS Apple Silicon, crates.io `cross` 0.2.5 is broken (wrong host
+# toolchain + no arm64 docker images). Prefer zigbuild/mingw on Darwin;
+# keep `cross` for Linux/Windows hosts that already have Docker set up.
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  setup:
+    desc: Install rustup targets and host-side cross tools
+    cmds:
+      - rustup target add
+          aarch64-apple-darwin
+          x86_64-apple-darwin
+          x86_64-unknown-linux-musl
+          aarch64-unknown-linux-musl
+          x86_64-pc-windows-gnu
+      - task: _setup:darwin
+      - task: _setup:cross
+
+  build:macos:arm64:
+    desc: Build for macOS Apple Silicon (aarch64)
+    deps: [setup]
+    cmds:
+      - cmd: cargo build {{.FLAGS}} --target aarch64-apple-darwin
+        platforms: [darwin]
+      - cmd: cross build {{.FLAGS}} --target aarch64-apple-darwin
+        platforms: [linux, windows]
+      - task: _package
+        vars: { TARGET: aarch64-apple-darwin, EXT: "" }
+
+  build:macos:amd64:
+    desc: Build for macOS Intel (x86_64)
+    deps: [setup]
+    cmds:
+      - cmd: cargo build {{.FLAGS}} --target x86_64-apple-darwin
+        platforms: [darwin]
+      - cmd: cross build {{.FLAGS}} --target x86_64-apple-darwin
+        platforms: [linux, windows]
+      - task: _package
+        vars: { TARGET: x86_64-apple-darwin, EXT: "" }
+
+  build:linux:amd64:
+    desc: Build for Linux x86_64 (musl)
+    deps: [setup]
+    cmds:
+      - cmd: cargo zigbuild {{.FLAGS}} --target x86_64-unknown-linux-musl
+        platforms: [darwin]
+      - cmd: cross build {{.FLAGS}} --target x86_64-unknown-linux-musl
+        platforms: [linux, windows]
+      - task: _package
+        vars: { TARGET: x86_64-unknown-linux-musl, EXT: "" }
+
+  build:linux:arm64:
+    desc: Build for Linux aarch64 (musl)
+    deps: [setup]
+    cmds:
+      - cmd: cargo zigbuild {{.FLAGS}} --target aarch64-unknown-linux-musl
+        platforms: [darwin]
+      - cmd: cross build {{.FLAGS}} --target aarch64-unknown-linux-musl
+        platforms: [linux, windows]
+      - task: _package
+        vars: { TARGET: aarch64-unknown-linux-musl, EXT: "" }
+
+  build:windows:amd64:
+    desc: Build for Windows x86_64 (gnu / mingw)
+    deps: [setup]
+    cmds:
+      - cmd: cargo build {{.FLAGS}} --target x86_64-pc-windows-gnu
+        platforms: [darwin]
+      - cmd: cross build {{.FLAGS}} --target x86_64-pc-windows-gnu
+        platforms: [linux, windows]
+      - task: _package
+        vars: { TARGET: x86_64-pc-windows-gnu, EXT: ".exe" }
+
+  build:macos:
+    desc: Build all macOS targets
+    deps: [build:macos:arm64, build:macos:amd64]
+
+  build:linux:
+    desc: Build all Linux targets
+    deps: [build:linux:amd64, build:linux:arm64]
+
+  build:windows:
+    desc: Build all Windows targets
+    deps: [build:windows:amd64]
+
+  build:all:
+    desc: Build ri18n for macOS, Linux, and Windows
+    deps: [build:macos, build:linux, build:windows]
+
+  clean:dist:
+    desc: Remove packaged binaries under dist/
+    cmds:
+      - rm -rf {{.DIST}}
+
+  # --- internal ---
+
+  _setup:darwin:
+    internal: true
+    platforms: [darwin]
+    cmds:
+      - |
+        if ! command -v zig >/dev/null 2>&1; then
+          brew install zig
+        fi
+      - |
+        if ! command -v cargo-zigbuild >/dev/null 2>&1; then
+          cargo install cargo-zigbuild --locked
+        fi
+      - |
+        if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+          brew install mingw-w64
+        fi
+
+  _setup:cross:
+    internal: true
+    platforms: [linux, windows]
+    cmds:
+      - |
+        if ! command -v cross >/dev/null 2>&1; then
+          cargo install cross --locked
+        fi
+
+  _package:
+    internal: true
+    requires:
+      vars: [TARGET, EXT]
+    cmds:
+      - |
+        src="${CARGO_TARGET_DIR:-target}/{{.TARGET}}/release/{{.BIN}}{{.EXT}}"
+        dest="{{.DIST}}/{{.TARGET}}"
+        mkdir -p "$dest"
+        cp "$src" "$dest/"
+        echo "→ $dest/{{.BIN}}{{.EXT}}"
