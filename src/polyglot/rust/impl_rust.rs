@@ -9,7 +9,6 @@ use crate::{
         constants::{
             ARG_NAME_ISO639, FIELD_NAME_CN_NAME, FIELD_NAME_EN_NAME, FIELD_NAME_NATIVE_NAME,
         },
-        i18n_entry::I18nEntry,
     },
     polyglot::{
         common::{
@@ -51,11 +50,18 @@ impl IntoRust for Package {
 
 impl IntoRust for PackageAction {
     fn into_rust(&self, settings: &RustSettings) -> String {
+        // Rust has no file-level `package` keyword; both actions are module paths.
         match self {
-            PackageAction::Import(package) => format!("use {}", package.into_rust(settings)),
-            _ => panic!("Rust doesn't support to define package in file"),
+            PackageAction::Import(package) => format!("use {};", package.into_rust(settings)),
+            PackageAction::Define(package) => package.into_rust(settings),
         }
     }
+}
+
+/// IR `base_ident` is nesting relative to an enclosing type (Java class body).
+/// Rust emits at file scope, so subtract one level.
+fn rust_file_ident(base_ident: u8) -> u8 {
+    base_ident.saturating_sub(1)
 }
 
 impl IntoRust for Field {
@@ -103,7 +109,9 @@ impl IntoRust for Types {
             }
             Types::Custom(tp) => tp.to_string(),
             Types::Void => "()".to_string(),
-            Types::ListAny => unreachable!("rust doesn't support ..args as method input"),
+            Types::VarArgs => unreachable!(
+                "VarArgs is not a Rust fn parameter; emit translate_with_args! macro instead"
+            ),
             Types::Option(types) => format!("Option<{}>", types.into_rust(settings)),
         };
         code
@@ -118,7 +126,7 @@ impl IntoRust for DataStruct {
             base_ident,
             ..
         } = self;
-        let mut lines = CodeLines::new(*base_ident - 1, Some(","));
+        let mut lines = CodeLines::new(rust_file_ident(*base_ident), Some(","));
         lines.push_without_terminator("#[derive(Debug, Clone)]");
         lines.push_without_terminator(format!("pub struct {name} {{"));
         for field in fields {
@@ -201,7 +209,7 @@ impl IntoRust for Module {
             true => format!("{PUB_MODIFIER} "),
             _ => "".to_string(),
         };
-        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        let mut lines = CodeLines::new(rust_file_ident(*base_ident), TERMINATOR);
         lines.push_without_terminator(format!("{modifier}mod {name} {{"));
         for statement in statements {
             lines.push(format!("\t{}", statement.into_rust(settings)));
@@ -218,13 +226,13 @@ impl IntoRust for I18nSwitch {
             entries,
             base_ident,
         } = self;
-        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        let mut lines = CodeLines::new(rust_file_ident(*base_ident), TERMINATOR);
         const RETURN_VALUE_NAME: &str = "content";
         lines.push_without_terminator(format!(
             "let {RETURN_VALUE_NAME} = match {} {{",
             arg_name_i18n_key.replace(to_snake_case)
         ));
-        for I18nEntry { key, value } in entries {
+        for (key, value) in entries {
             let key = key.replace(".", "_");
             lines.push_without_terminator(format!(
                 "\t{CONSTANTS_NAME_KEY}::{} => \"{}\",",
@@ -248,7 +256,7 @@ impl IntoRust for LanguageMatcher {
             language_to_fn_match_entries,
             base_ident,
         } = self;
-        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        let mut lines = CodeLines::new(rust_file_ident(*base_ident), TERMINATOR);
         lines.push_without_terminator(format!(
             "match {} {{",
             arg_name_iso639.replace(to_snake_case)
@@ -269,15 +277,16 @@ impl IntoRust for LanguageMatcher {
 impl IntoRust for I18nMethodContent {
     fn into_rust(&self, settings: &RustSettings) -> String {
         let Self { tp, base_ident } = self;
-        let mut lines = CodeLines::new(*base_ident - 1, None);
+        let mut lines = CodeLines::new(rust_file_ident(*base_ident), None);
         match tp {
-            I18nMethodType::GetByLocale { language_matcher } => {
+            I18nMethodType::Translate { language_matcher } => {
                 lines.extend(language_matcher.into_rust(settings));
             }
             I18nMethodType::MatchEntries { match_entries } => {
                 lines.extend(match_entries.into_rust(settings));
             }
-            I18nMethodType::GetByLocaleWithArgs { .. } | I18nMethodType::Empty => (),
+            // Body is unused for with-args: Rust emits a macro, not a fn body.
+            I18nMethodType::TranslateWithArgs { .. } | I18nMethodType::Empty => (),
         };
         lines.generate()
     }
@@ -316,43 +325,30 @@ impl IntoRust for MethodCall {
     }
 }
 
-fn macros_get_by_locale(module_path: String, method: &Method) -> String {
-    // macros_name: &Naming, fn_name_get_locale: &Naming
+/// Rust strategy for `TranslateWithArgs`: emit `translate_with_args!`
+/// that delegates lookup to `translate` and formats via `formatx`.
+fn macros_translate_with_args(module_path: String, method: &Method) -> String {
     let Method {
         definition, code, ..
     } = method;
-    if !matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
+    if !matches!(&code.tp, I18nMethodType::TranslateWithArgs { .. }) {
         return format!("");
     }
-    // generate macros
     let macros_name = &definition.name;
-    let fn_name_get_locale = match &code.tp {
-        I18nMethodType::GetByLocaleWithArgs {
-            fn_name_get_locale, ..
-        } => fn_name_get_locale,
+    let fn_name_translate = match &code.tp {
+        I18nMethodType::TranslateWithArgs {
+            fn_name_translate, ..
+        } => fn_name_translate,
         _ => unreachable!(),
     };
     let macros_name = macros_name.replace(to_snake_case);
-    let fn_name_get_locale = fn_name_get_locale.replace(to_snake_case);
+    let fn_name_translate = fn_name_translate.replace(to_snake_case);
     let module_path = format!("crate::{module_path}");
 
-    format!(
-        r#"
-#[macro_export]
-macro_rules! {macros_name} {{
-    ($code:expr, $key:expr) => {{
-        ${module_path}::{fn_name_get_locale}($code, $key)
-    }};
-    ($code:expr, $key:expr, $($values:tt)*) => {{{{
-        #[allow(unused_imports)] use formatx::formatx;
-        if let Some(template) = ${module_path}::{fn_name_get_locale}($code, $key) {{
-            Some(formatx!(template, $($values)*))
-        }} else {{
-            None
-        }}
-    }}}};
-}}"#,
-    )
+    include_str!("templates/translate_with_args.rs.template")
+        .replace("__MACROS_NAME__", &macros_name)
+        .replace("__MODULE_PATH__", &module_path)
+        .replace("__FN_NAME_TRANSLATE__", &fn_name_translate)
 }
 
 impl IntoRust for MethodDefinition {
@@ -396,14 +392,13 @@ impl IntoRust for Method {
             code,
             base_ident,
         } = self;
-        if matches!(&code.tp, I18nMethodType::GetByLocaleWithArgs { .. }) {
-            // generate macros
+        if matches!(&code.tp, I18nMethodType::TranslateWithArgs { .. }) {
+            // Contract: with-args is a macro in Rust, not a function.
             return format!("");
         }
 
         let method_definition = definition.into_rust(settings);
-        // there is no class in rust implement, so base_ident decrease 1
-        let mut lines = CodeLines::new(*base_ident - 1, TERMINATOR);
+        let mut lines = CodeLines::new(rust_file_ident(*base_ident), TERMINATOR);
         lines.push_without_terminator(format!("{method_definition} {{",));
         lines.extend(code.into_rust(settings));
         lines.push_without_terminator("}");
@@ -415,11 +410,11 @@ impl IntoRust for I18nCodeGenerator {
     fn into_rust(&self, settings: &RustSettings) -> String {
         let Self {
             struct_support_language_list,
-            fn_get_by_locale_with_args,
+            fn_translate_with_args,
             const_support_languages,
             call_insert_support_language_list,
             const_i18n_keys,
-            fn_get_by_locale,
+            fn_translate,
             fn_match_entries,
             package,
             name,
@@ -468,33 +463,29 @@ impl IntoRust for I18nCodeGenerator {
             .extend(key_module.into_rust(settings))
             .next_line_if_true(true);
 
-        if let Some(fn_get_by_locale_with_args) = fn_get_by_locale_with_args {
+        if let Some(fn_translate_with_args) = fn_translate_with_args {
             if settings.formatx_enable {
                 let module_path = package
                     .as_ref()
-                    .map(|p| match &p {
-                        PackageAction::Import(_) => None,
-                        PackageAction::Define(package) => Some(package.clone()),
-                    })
-                    .flatten()
-                    .map(|mut p| {
+                    .map(|action| {
+                        let mut p = action.package().clone();
                         p.package_path = p.package_path.join(name);
                         p.into_rust(settings)
                     })
                     .unwrap_or_else(|| {
-                        Package::from_str(&name)
+                        Package::from_str(name)
                             .expect("Failed to parse path")
                             .into_rust(settings)
                     });
-                // generate `get_by_locale!()` macros
-                let codes = macros_get_by_locale(module_path, &fn_get_by_locale_with_args);
+                // generate `translate_with_args!` macro (Rust with-args strategy)
+                let codes = macros_translate_with_args(module_path, &fn_translate_with_args);
                 lines.extend(codes).next_line_if_true(true);
             }
         }
 
-        // generate method `get_by_locale()`
-        if let Some(fn_get_by_locale) = fn_get_by_locale {
-            let codes = fn_get_by_locale.into_rust(settings);
+        // generate method `translate()`
+        if let Some(fn_translate) = fn_translate {
+            let codes = fn_translate.into_rust(settings);
             lines.extend(codes).next_line_if_true(true);
         }
 

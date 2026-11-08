@@ -2,7 +2,7 @@ use clap::{ArgAction, Parser, Subcommand};
 use enum_kinds::EnumKind;
 use std::path::PathBuf;
 
-#[derive(Subcommand, Clone, Debug, EnumKind, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Subcommand, EnumKind, PartialEq, Eq, Hash)]
 #[clap(rename_all = "kebab-case")]
 #[enum_kind(TargetKind, derive(Hash))]
 pub enum Target {
@@ -15,6 +15,10 @@ pub enum Target {
         #[arg(short, long, env, default_value = "false", action = ArgAction::SetTrue)]
         formatx_enable: bool,
     },
+    /// Emit a TypeScript module (`.ts`) with `translate` / `translateWithArgs`.
+    Typescript,
+    /// Emit a Python module (`.py`) with `translate` / `translate_with_args`.
+    Python,
 }
 
 #[derive(Debug, Parser)]

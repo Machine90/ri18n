@@ -1,4 +1,7 @@
 /target
+/dist
 Cargo.lock
 codegen
 .vscode
+__pycache__/
+*.py[cod]

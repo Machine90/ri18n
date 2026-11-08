@@ -4,6 +4,8 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::{Context, Result, bail};
+
 use crate::{
     args::{Target, TargetKind},
     common::constants::*,
@@ -20,7 +22,9 @@ use crate::{
             used_types::{Construct, Types},
         },
         java::JavaCodeGen,
+        python::PythonCodeGen,
         rust::RustCodeGen,
+        typescript::TypeScriptCodeGen,
     },
 };
 
@@ -43,7 +47,7 @@ impl I18nCodeGen {
         name: String,
         i18n_asset_dir: P,
         generate_constants_only: bool,
-    ) -> Self {
+    ) -> Result<Self> {
         let src_dir = i18n_asset_dir.as_ref().to_path_buf();
 
         let language_list = Field {
@@ -56,13 +60,12 @@ impl I18nCodeGen {
             name: Naming::new(INSTANCE_NAME_LANGUAGE_LIST),
         };
 
-        let mut fn_get_by_locale = None;
-        let mut fn_get_by_locale_with_args = None;
+        let mut fn_translate = None;
+        let mut fn_translate_with_args = None;
         if !generate_constants_only {
-            fn_get_by_locale = Some(Method::new_method_get_by_locale(None, None, 1));
-            fn_get_by_locale_with_args = Some(Method::new_method_get_by_locale_with_args(
-                None, None, None, 1,
-            ));
+            fn_translate = Some(Method::new_method_translate(None, None, 1));
+            fn_translate_with_args =
+                Some(Method::new_method_translate_with_args(None, None, None, 1));
         }
 
         let mut i18n_gen = I18nCodeGenerator {
@@ -81,8 +84,8 @@ impl I18nCodeGen {
                 with_constructor: true,
                 ..Default::default()
             },
-            fn_get_by_locale,
-            fn_get_by_locale_with_args,
+            fn_translate,
+            fn_translate_with_args,
             fn_match_entries: Default::default(),
             const_support_languages: [].into(),
             stat_build_support_language_list: Statement {
@@ -97,37 +100,58 @@ impl I18nCodeGen {
             },
             call_insert_support_language_list: Default::default(),
             const_i18n_keys: [].into(),
+            keys_by_locale: Default::default(),
         };
         let mut i18n_files_reader = I18nFileReader {
-            src_dir,
+            src_dir: src_dir.clone(),
             writer: |iso639_code, i18n_key, value| {
                 i18n_gen.insert_i18n_entry(iso639_code, i18n_key, value, generate_constants_only);
             },
         };
-        if let Err(e) = i18n_files_reader.run() {
-            eprintln!("Failed to read file, error: {e:?}");
+        i18n_files_reader
+            .run()
+            .with_context(|| format!("failed to load i18n files from {}", src_dir.display()))?;
+
+        if i18n_gen.call_insert_support_language_list.is_empty() {
+            bail!(
+                "no support languages were produced from {}",
+                src_dir.display()
+            );
         }
+        i18n_gen.warn_locale_key_mismatches();
+
         let generator = Arc::new(i18n_gen);
 
         let mut generators = HashMap::new();
-        // Add Java target
         let java_codegen: Box<dyn IntoCode> = Box::new(JavaCodeGen {
             generator: generator.clone(),
         });
         generators.insert(TargetKind::Java, java_codegen);
-        // Add Rust target
         let rust_codegen: Box<dyn IntoCode> = Box::new(RustCodeGen {
             generator: generator.clone(),
         });
         generators.insert(TargetKind::Rust, rust_codegen);
-        Self { generators }
+        let typescript_codegen: Box<dyn IntoCode> = Box::new(TypeScriptCodeGen {
+            generator: generator.clone(),
+        });
+        generators.insert(TargetKind::Typescript, typescript_codegen);
+        let python_codegen: Box<dyn IntoCode> = Box::new(PythonCodeGen {
+            generator: generator.clone(),
+        });
+        generators.insert(TargetKind::Python, python_codegen);
+        Ok(Self { generators })
     }
 
-    pub fn generate_code(&self, target: Target) -> Option<String> {
+    pub fn generate_code(&self, target: Target) -> Result<String> {
         let kind = match &target {
             Target::Java => TargetKind::Java,
             Target::Rust { .. } => TargetKind::Rust,
+            Target::Typescript => TargetKind::Typescript,
+            Target::Python => TargetKind::Python,
         };
-        self.generators.get(&kind).map(|g| g.into_code(target))
+        self.generators
+            .get(&kind)
+            .map(|g| g.into_code(target))
+            .ok_or_else(|| anyhow::anyhow!("no code generator registered for target {kind:?}"))
     }
 }

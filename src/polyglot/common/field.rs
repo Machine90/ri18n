@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::polyglot::common::{used_types::Types, Naming};
+use crate::polyglot::common::{Naming, used_types::Types};
 
 #[derive(Debug, Clone, Default)]
 pub struct Field {

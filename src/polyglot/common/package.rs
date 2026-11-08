@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 #[derive(Debug, Default, Clone)]
 pub struct Package {
@@ -14,16 +14,17 @@ impl FromStr for Package {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let package_path = if s.contains(".") {
-            s.split(".")
-                .map(|seg| Path::new(seg.trim()).to_path_buf())
-                .collect::<PathBuf>()
-        } else if s.contains("/") {
-            s.split("/")
-                .map(|seg| Path::new(seg.trim()).to_path_buf())
-                .collect::<PathBuf>()
-        } else if s.contains("::") {
+        // Prefer the most specific separator first so `a::b.c` is not split on `.`.
+        let package_path = if s.contains("::") {
             s.split("::")
+                .map(|seg| Path::new(seg.trim()).to_path_buf())
+                .collect::<PathBuf>()
+        } else if s.contains('/') {
+            s.split('/')
+                .map(|seg| Path::new(seg.trim()).to_path_buf())
+                .collect::<PathBuf>()
+        } else if s.contains('.') {
+            s.split('.')
                 .map(|seg| Path::new(seg.trim()).to_path_buf())
                 .collect::<PathBuf>()
         } else {
@@ -33,8 +34,19 @@ impl FromStr for Package {
     }
 }
 
+/// Language-neutral namespace path action.
+/// - Java: `Define` → `package ...;`, `Import` → `import ...;`
+/// - Rust: both resolve to a `::`-joined module path; `Define` is not emitted as a file header.
 #[derive(Debug, Clone)]
 pub enum PackageAction {
     Import(Package),
     Define(Package),
+}
+
+impl PackageAction {
+    pub fn package(&self) -> &Package {
+        match self {
+            PackageAction::Import(package) | PackageAction::Define(package) => package,
+        }
+    }
 }
