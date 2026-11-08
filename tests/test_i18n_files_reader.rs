@@ -72,3 +72,32 @@ fn test_reads_all_fixtures_under_i18n_dir() {
         );
     }
 }
+
+#[rstest]
+#[test_log::test]
+fn test_missing_source_path_returns_error() {
+    let missing =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/does-not-exist");
+    let mut entries = Vec::new();
+    let mut reader = I18nFileReader {
+        src_dir: missing,
+        writer: |iso639, key, value| {
+            entries.push((iso639.to_string(), key.to_string(), value.to_string()));
+        },
+    };
+    let err = reader.run().expect_err("missing path should fail");
+    assert!(err.to_string().contains("does not exist"));
+    assert!(entries.is_empty());
+}
+
+#[rstest]
+#[test_log::test]
+fn test_empty_directory_returns_error() {
+    let empty_dir = tempfile::tempdir().expect("tempdir");
+    let mut reader = I18nFileReader {
+        src_dir: empty_dir.path().to_path_buf(),
+        writer: |_, _, _| {},
+    };
+    let err = reader.run().expect_err("empty dir should fail");
+    assert!(err.to_string().contains("no supported i18n files"));
+}

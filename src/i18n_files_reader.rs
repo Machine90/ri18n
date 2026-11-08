@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use hashlink::LinkedHashMap;
 use serde_json::{Map, Value};
 use toml::Table;
@@ -50,45 +50,94 @@ pub struct I18nFileReader<W: FnMut(&str, &str, &str)> {
 
 impl<W: FnMut(&str, &str, &str)> I18nFileReader<W> {
     pub fn run(&mut self) -> Result<()> {
+        if !self.src_dir.exists() {
+            bail!(
+                "i18n source path does not exist: {}",
+                self.src_dir.display()
+            );
+        }
+
         let mut i18n_files = HashSet::new();
         Self::read_files(self.src_dir.clone(), &mut i18n_files)?;
+        if i18n_files.is_empty() {
+            bail!(
+                "no supported i18n files found under {} (expected .json/.yaml/.yml/.toml/.properties)",
+                self.src_dir.display()
+            );
+        }
 
         let detector = Detector::with_denylist(vec![Lang::Nob, Lang::Pes]);
+        let mut loaded_entries = 0usize;
+        let mut skipped_undetectable = 0usize;
 
         for file in i18n_files {
-            let mut lang = get_language_hint_from_filename(&file.get_path()).ok();
+            let path = file.get_path();
+            let mut lang = get_language_hint_from_filename(&path).ok();
             let entries = match file {
-                InputFile::Json(path_buf) => read_i18n_entries_from_json(path_buf)?,
-                InputFile::Yaml(path_buf) => read_i18n_entries_from_yaml(path_buf)?,
-                InputFile::Toml(path_buf) => read_i18n_entries_from_toml(path_buf)?,
-                InputFile::Properties(path_buf) => read_i18n_entries_from_properties(path_buf)?,
+                InputFile::Json(path_buf) => read_i18n_entries_from_json(path_buf)
+                    .with_context(|| format!("failed to read json i18n file {}", path.display()))?,
+                InputFile::Yaml(path_buf) => read_i18n_entries_from_yaml(path_buf)
+                    .with_context(|| format!("failed to read yaml i18n file {}", path.display()))?,
+                InputFile::Toml(path_buf) => read_i18n_entries_from_toml(path_buf)
+                    .with_context(|| format!("failed to read toml i18n file {}", path.display()))?,
+                InputFile::Properties(path_buf) => read_i18n_entries_from_properties(path_buf)
+                    .with_context(|| {
+                        format!("failed to read properties i18n file {}", path.display())
+                    })?,
             };
+            if entries.is_empty() {
+                eprintln!(
+                    "warning: skipping {}: file has no i18n entries",
+                    path.display()
+                );
+                continue;
+            }
             lang = lang.or(detect_language(&entries, &detector));
             let iso639_code = match lang {
                 Some(iso639_code) => iso639_code,
-                None => continue,
+                None => {
+                    skipped_undetectable += 1;
+                    eprintln!(
+                        "warning: skipping {}: cannot detect language from filename or content; rename like i18n_<iso639>.{{json,yaml,toml,properties}}",
+                        path.display()
+                    );
+                    continue;
+                }
             };
+            loaded_entries += entries.len();
             for entry in entries {
                 (self.writer)(&iso639_code, &entry.key, &entry.value.i18n_content);
             }
+        }
+
+        if loaded_entries == 0 {
+            bail!(
+                "no i18n entries were loaded from {} ({} file(s) skipped because language was undetectable)",
+                self.src_dir.display(),
+                skipped_undetectable
+            );
         }
         Ok(())
     }
 
     fn read_files(current_dir: PathBuf, i18n_files: &mut HashSet<InputFile>) -> Result<()> {
-        if !current_dir.exists() {
-            return Ok(());
-        }
         if current_dir.is_file() {
             if let Some(file) = Self::select_target_file(current_dir) {
                 i18n_files.insert(file);
             }
             return Ok(());
         }
-        for dir in current_dir.read_dir()? {
-            let dir = dir?;
-            let next_path = dir.path();
-            Self::read_files(next_path, i18n_files)?;
+        for dir in current_dir
+            .read_dir()
+            .with_context(|| format!("failed to read directory {}", current_dir.display()))?
+        {
+            let dir = dir.with_context(|| {
+                format!(
+                    "failed to read directory entry under {}",
+                    current_dir.display()
+                )
+            })?;
+            Self::read_files(dir.path(), i18n_files)?;
         }
         Ok(())
     }
@@ -121,24 +170,19 @@ fn get_language_hint_from_filename(file_path: &PathBuf) -> Result<String> {
         .split(".")
         .next()
         .context("Failed to get file name without extension")?;
-    let iso639_code = if file_name.contains("-") {
+    let iso639_code = if file_name.contains('_') {
         file_name
-            .split("-")
+            .split('_')
             .last()
-            .expect("Failed to parse language")
-    } else if file_name.contains("_") {
-        file_name
-            .split("_")
-            .last()
-            .expect("Failed to parse language")
+            .context("failed to parse language hint from filename")?
     } else {
         file_name
     }
     .to_lowercase();
     if !iso639_map().contains_key(iso639_code.as_str()) {
-        return Err(anyhow::anyhow!("Invalid iso639 code"));
+        bail!("invalid iso639 code in filename: {iso639_code}");
     }
-    return Ok(iso639_code);
+    Ok(iso639_code)
 }
 
 fn detect_language(entries: &HashSet<I18nEntry>, detector: &Detector) -> Option<String> {
@@ -293,7 +337,7 @@ fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
 
     let yaml = f
         .decode()
-        .expect(&format!("Failed to decode yaml file {file_path:?}"));
+        .map_err(|e| anyhow::anyhow!("failed to decode yaml file {file_path:?}: {e:?}"))?;
     let entries = yaml
         .into_iter()
         .filter_map(|v| {
@@ -342,5 +386,31 @@ mod tests {
         if let Some(expected) = expected {
             assert_eq!(result.unwrap(), expected);
         }
+    }
+
+    #[rstest]
+    #[test_log::test]
+    fn test_run_fails_when_language_undetectable_for_all_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("messages.toml");
+        std::fs::write(
+            &path,
+            r#"
+greeting = "12345"
+count = "999"
+"#,
+        )
+        .expect("write fixture");
+
+        let mut loaded = 0usize;
+        let mut reader = I18nFileReader {
+            src_dir: dir.path().to_path_buf(),
+            writer: |_, _, _| loaded += 1,
+        };
+        let err = reader
+            .run()
+            .expect_err("undetectable language should fail the run when nothing loads");
+        assert!(err.to_string().contains("no i18n entries were loaded"));
+        assert_eq!(loaded, 0);
     }
 }

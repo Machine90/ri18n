@@ -4,6 +4,8 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::{Context, Result, bail};
+
 use crate::{
     args::{Target, TargetKind},
     common::constants::*,
@@ -43,7 +45,7 @@ impl I18nCodeGen {
         name: String,
         i18n_asset_dir: P,
         generate_constants_only: bool,
-    ) -> Self {
+    ) -> Result<Self> {
         let src_dir = i18n_asset_dir.as_ref().to_path_buf();
 
         let language_list = Field {
@@ -99,35 +101,44 @@ impl I18nCodeGen {
             const_i18n_keys: [].into(),
         };
         let mut i18n_files_reader = I18nFileReader {
-            src_dir,
+            src_dir: src_dir.clone(),
             writer: |iso639_code, i18n_key, value| {
                 i18n_gen.insert_i18n_entry(iso639_code, i18n_key, value, generate_constants_only);
             },
         };
-        if let Err(e) = i18n_files_reader.run() {
-            eprintln!("Failed to read file, error: {e:?}");
+        i18n_files_reader
+            .run()
+            .with_context(|| format!("failed to load i18n files from {}", src_dir.display()))?;
+
+        if i18n_gen.call_insert_support_language_list.is_empty() {
+            bail!(
+                "no support languages were produced from {}",
+                src_dir.display()
+            );
         }
+
         let generator = Arc::new(i18n_gen);
 
         let mut generators = HashMap::new();
-        // Add Java target
         let java_codegen: Box<dyn IntoCode> = Box::new(JavaCodeGen {
             generator: generator.clone(),
         });
         generators.insert(TargetKind::Java, java_codegen);
-        // Add Rust target
         let rust_codegen: Box<dyn IntoCode> = Box::new(RustCodeGen {
             generator: generator.clone(),
         });
         generators.insert(TargetKind::Rust, rust_codegen);
-        Self { generators }
+        Ok(Self { generators })
     }
 
-    pub fn generate_code(&self, target: Target) -> Option<String> {
+    pub fn generate_code(&self, target: Target) -> Result<String> {
         let kind = match &target {
             Target::Java => TargetKind::Java,
             Target::Rust { .. } => TargetKind::Rust,
         };
-        self.generators.get(&kind).map(|g| g.into_code(target))
+        self.generators
+            .get(&kind)
+            .map(|g| g.into_code(target))
+            .ok_or_else(|| anyhow::anyhow!("no code generator registered for target {kind:?}"))
     }
 }

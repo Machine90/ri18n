@@ -9,7 +9,8 @@ use common::{assert_matches_golden, fixture_dir};
 
 fn generate(target: Target, package: Option<&str>, constants_only: bool) -> String {
     let package = package.map(|p| Package::from_str(p).expect("package"));
-    let codegen = I18nCodeGen::new(package, "Ri18n".to_string(), fixture_dir(), constants_only);
+    let codegen = I18nCodeGen::new(package, "Ri18n".to_string(), fixture_dir(), constants_only)
+        .expect("load i18n fixtures");
     codegen
         .generate_code(target)
         .expect("generate target language code")
