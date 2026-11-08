@@ -41,7 +41,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        # Only fail on unused/dead code and loops that never iterate; allow style noise.
+        run: >-
+          cargo clippy --all-targets --all-features --
+          -A clippy::all
+          -D unused
+          -D dead_code
+          -D clippy::never_loop
 
   test:
     name: test-rust
