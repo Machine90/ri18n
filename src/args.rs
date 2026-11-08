@@ -15,6 +15,8 @@ pub enum Target {
         #[arg(short, long, env, default_value = "false", action = ArgAction::SetTrue)]
         formatx_enable: bool,
     },
+    /// Emit a TypeScript module (`.ts`) with `translate` / `translateWithArgs`.
+    Typescript,
 }
 
 #[derive(Debug, Parser)]

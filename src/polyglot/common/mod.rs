@@ -103,6 +103,19 @@ pub fn rust_matcher(fmt: Format) -> &'static str {
     }
 }
 
+/// TypeScript templates use `{}` placeholders; `translateWithArgs` replaces them in order.
+pub fn typescript_matcher(fmt: Format) -> &'static str {
+    match fmt {
+        Format::String
+        | Format::Int32
+        | Format::Float
+        | Format::Char
+        | Format::Bool
+        | Format::Hex
+        | Format::Exponent => "{}",
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Naming {
     pub name: String,

@@ -64,6 +64,22 @@ fn generate(target: Target, package: Option<&str>, name: &str, constants_only: b
     "ri18n_constants_only.rs",
     false
 )]
+#[case::typescript_full(
+    Target::Typescript,
+    Some("com.example.ri18n"),
+    "ri18n",
+    false,
+    "ri18n.ts",
+    true
+)]
+#[case::typescript_constants_only(
+    Target::Typescript,
+    None,
+    "ri18nConstantsOnly",
+    true,
+    "ri18nConstantsOnly.ts",
+    false
+)]
 fn test_codegen_matches_golden(
     #[case] target: Target,
     #[case] package: Option<&str>,
@@ -96,6 +112,15 @@ fn test_codegen_matches_golden(
             } else if expect_lookup_api {
                 assert!(!code.contains("macro_rules! translate_with_args"));
             }
+        }
+        Target::Typescript => {
+            assert!(code.contains("export const Iso639Codes"));
+            assert!(code.contains("export const Keys"));
+            assert_eq!(code.contains("function translate("), expect_lookup_api);
+            assert_eq!(
+                code.contains("function translateWithArgs("),
+                expect_lookup_api
+            );
         }
     }
 }

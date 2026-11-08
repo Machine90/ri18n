@@ -47,6 +47,7 @@ fn run() -> Result<()> {
     let file_name = match args.language {
         Target::Java => format!("{}.java", args.name),
         Target::Rust { .. } => format!("{}.rs", args.name),
+        Target::Typescript => format!("{}.ts", args.name),
     };
     let mut save_to = args.target_dir;
     if save_to.is_file() {
