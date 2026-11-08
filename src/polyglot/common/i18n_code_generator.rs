@@ -52,6 +52,8 @@ pub struct I18nCodeGenerator {
     pub fn_translate: Option<Method>,
     pub fn_translate_with_args: Option<Method>,
     pub fn_match_entries: BTreeMap<String, Method>,
+    /// Per-locale key sets for cross-locale consistency checks.
+    pub keys_by_locale: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl I18nCodeGenerator {
@@ -73,6 +75,10 @@ impl I18nCodeGenerator {
             iso639_entry,
         };
         self.call_insert_support_language_list.insert(language);
+        self.keys_by_locale
+            .entry(language_iso639_code.to_string())
+            .or_default()
+            .insert(key.to_string());
 
         if !generate_constants_only {
             let fn_match_entries = self
@@ -115,5 +121,26 @@ impl I18nCodeGenerator {
         };
         self.const_support_languages.insert(const_support_lang);
         self
+    }
+
+    /// Warn when locales do not share the same key set.
+    pub fn warn_locale_key_mismatches(&self) {
+        if self.keys_by_locale.len() < 2 {
+            return;
+        }
+        let mut union = BTreeSet::new();
+        for keys in self.keys_by_locale.values() {
+            union.extend(keys.iter().cloned());
+        }
+        for (locale, keys) in &self.keys_by_locale {
+            let missing: Vec<&String> = union.difference(keys).collect();
+            if !missing.is_empty() {
+                tracing::warn!(
+                    locale = %locale,
+                    missing = ?missing,
+                    "locale is missing translation keys present in other locales"
+                );
+            }
+        }
     }
 }

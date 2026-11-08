@@ -98,6 +98,7 @@ impl I18nCodeGen {
             },
             call_insert_support_language_list: Default::default(),
             const_i18n_keys: [].into(),
+            keys_by_locale: Default::default(),
         };
         let mut i18n_files_reader = I18nFileReader {
             src_dir: src_dir.clone(),
@@ -115,6 +116,7 @@ impl I18nCodeGen {
                 src_dir.display()
             );
         }
+        i18n_gen.warn_locale_key_mismatches();
 
         let generator = Arc::new(i18n_gen);
 

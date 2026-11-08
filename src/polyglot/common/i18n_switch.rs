@@ -1,17 +1,15 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
-use crate::{
-    common::i18n_entry::I18nEntry,
-    polyglot::common::{
-        FormatContent, Naming,
-        i18n_method::{Method, MethodCall},
-    },
+use crate::polyglot::common::{
+    FormatContent, Naming,
+    i18n_method::{Method, MethodCall},
 };
 
 #[derive(Debug, Default)]
 pub struct I18nSwitch {
     pub arg_name_i18n_key: Naming,
-    pub entries: BTreeSet<I18nEntry>,
+    /// key → template; BTreeMap keeps deterministic order and last-write for same key.
+    pub entries: BTreeMap<String, FormatContent>,
     pub base_ident: u8,
 }
 
@@ -24,13 +22,17 @@ pub struct LanguageMatcher {
 
 impl I18nSwitch {
     pub(crate) fn insert(&mut self, i18n_key: &str, i18n_value: &str) -> &mut Self {
-        self.entries.insert(I18nEntry {
-            key: i18n_key.to_string(),
-            value: FormatContent {
+        self.entries.insert(
+            i18n_key.to_string(),
+            FormatContent {
                 i18n_content: i18n_value.to_string(),
             },
-        });
+        );
         self
+    }
+
+    pub(crate) fn keys(&self) -> impl Iterator<Item = &String> {
+        self.entries.keys()
     }
 }
 

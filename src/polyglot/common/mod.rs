@@ -10,16 +10,20 @@ pub mod package;
 pub mod statement;
 pub mod used_types;
 
+use std::sync::OnceLock;
+
 use convert_case::{Case, Casing};
-use lazy_static::lazy_static;
 use regex::Regex;
 
-lazy_static! {
-    /// Placeholder token allowlist. Unknown `{...}` tokens are left unchanged.
-    pub static ref REGEX: Regex = Regex::new(
-        r"\{(string|s|str|text|c|char|u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|int|integer|long|short|byte|f32|f64|float|double|bool|boolean|hex|exp)\}"
-    )
-    .expect("Invalid regex");
+/// Placeholder token allowlist. Unknown `{...}` tokens are left unchanged.
+pub fn placeholder_regex() -> &'static Regex {
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    REGEX.get_or_init(|| {
+        Regex::new(
+            r"\{(string|s|str|text|c|char|u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|int|integer|long|short|byte|f32|f64|float|double|bool|boolean|hex|exp)\}",
+        )
+        .expect("Invalid regex")
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -46,14 +50,14 @@ pub enum Format {
 /// * {bool} | {boolean} => Format::Bool
 /// * {hex} => Format::Hex
 /// * {exp} => Format::Exponent
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FormatContent {
     pub i18n_content: String,
 }
 
 impl FormatContent {
     pub fn replace(&self, matcher: fn(Format) -> &'static str) -> String {
-        REGEX
+        placeholder_regex()
             .replace_all(&self.i18n_content, |caps: &regex::Captures<'_>| {
                 let token = caps.get(1).map(|m| m.as_str()).unwrap_or("");
                 match token {

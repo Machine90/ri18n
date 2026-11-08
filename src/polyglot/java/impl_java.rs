@@ -1,5 +1,4 @@
 use crate::common::code_lines::CodeLines;
-use crate::common::i18n_entry::I18nEntry;
 use crate::polyglot::common::i18n_method::MethodDefinition;
 use crate::polyglot::common::i18n_switch::{I18nSwitch, LanguageMatcher};
 use crate::polyglot::common::package::PackageAction;
@@ -263,7 +262,7 @@ impl IntoJava for I18nSwitch {
             "switch ({}) {{",
             arg_name_i18n_key.replace(to_camelcase)
         ));
-        for I18nEntry { key, value } in entries {
+        for (key, value) in entries {
             let key = key.replace(".", "_");
             lines
                 .push_without_terminator(format!(
@@ -380,6 +379,7 @@ impl IntoJava for I18nCodeGenerator {
             call_insert_support_language_list,
             const_i18n_keys,
             fn_match_entries,
+            ..
         } = self;
         let mut lines = CodeLines::new(0, TERMINATOR);
         if let Some(pkg) = package {

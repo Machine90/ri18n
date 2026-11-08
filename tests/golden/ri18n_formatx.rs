@@ -47,7 +47,6 @@ pub mod keys {
 	pub const HUMAN_WOMAN_NAME: &str = "human.woman.name";
 }
 
-
 #[macro_export]
 macro_rules! translate_with_args {
     ($code:expr, $key:expr) => {
@@ -62,6 +61,7 @@ macro_rules! translate_with_args {
         }
     }};
 }
+
 
 pub fn translate(iso_639_code: &str, translation_key: &str) -> Option<String> {
 	match iso_639_code {

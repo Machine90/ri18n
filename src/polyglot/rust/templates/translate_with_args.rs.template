@@ -1,0 +1,14 @@
+#[macro_export]
+macro_rules! __MACROS_NAME__ {
+    ($code:expr, $key:expr) => {
+        $__MODULE_PATH__::__FN_NAME_TRANSLATE__($code, $key)
+    };
+    ($code:expr, $key:expr, $($values:tt)*) => {{
+        #[allow(unused_imports)] use formatx::formatx;
+        if let Some(template) = $__MODULE_PATH__::__FN_NAME_TRANSLATE__($code, $key) {
+            Some(formatx!(template, $($values)*))
+        } else {
+            None
+        }
+    }};
+}

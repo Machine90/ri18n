@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
+use tracing_subscriber::EnvFilter;
 
 use ri18n::{
     I18nCodeGen,
@@ -16,7 +17,17 @@ fn main() {
     }
 }
 
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .without_time()
+        .try_init();
+}
+
 fn run() -> Result<()> {
+    init_tracing();
     let args = Args::parse();
     let package = args
         .package

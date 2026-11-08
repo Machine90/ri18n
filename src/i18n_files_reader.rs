@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     hash::Hash,
     io::Read,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, bail};
@@ -86,26 +86,26 @@ impl<W: FnMut(&str, &str, &str)> I18nFileReader<W> {
                     })?,
             };
             if entries.is_empty() {
-                eprintln!(
-                    "warning: skipping {}: file has no i18n entries",
-                    path.display()
+                tracing::warn!(
+                    path = %path.display(),
+                    "skipping i18n file with no entries"
                 );
                 continue;
             }
-            lang = lang.or(detect_language(&entries, &detector));
+            lang = lang.or_else(|| detect_language(entries.values(), &detector));
             let iso639_code = match lang {
                 Some(iso639_code) => iso639_code,
                 None => {
                     skipped_undetectable += 1;
-                    eprintln!(
-                        "warning: skipping {}: cannot detect language from filename or content; rename like i18n_<iso639>.{{json,yaml,toml,properties}}",
-                        path.display()
+                    tracing::warn!(
+                        path = %path.display(),
+                        "skipping i18n file: cannot detect language from filename or content; rename like i18n_<iso639>.{{json,yaml,toml,properties}}"
                     );
                     continue;
                 }
             };
             loaded_entries += entries.len();
-            for entry in entries {
+            for entry in entries.values() {
                 (self.writer)(&iso639_code, &entry.key, &entry.value.i18n_content);
             }
         }
@@ -185,9 +185,12 @@ fn get_language_hint_from_filename(file_path: &PathBuf) -> Result<String> {
     Ok(iso639_code)
 }
 
-fn detect_language(entries: &HashSet<I18nEntry>, detector: &Detector) -> Option<String> {
+fn detect_language<'a, I>(entries: I, detector: &Detector) -> Option<String>
+where
+    I: IntoIterator<Item = &'a I18nEntry>,
+{
     let mut codes = entries
-        .iter()
+        .into_iter()
         .filter_map(|ent| detector.detect(&ent.value.i18n_content))
         .fold(HashMap::<Lang, (u64, u32)>::new(), |mut map, info| {
             let confidence = (info.confidence() * 1_000_000_000.) as u64;
@@ -200,18 +203,45 @@ fn detect_language(entries: &HashSet<I18nEntry>, detector: &Detector) -> Option<
         .map(|(k, v)| (v, k))
         .collect::<BTreeMap<(u64, u32), Lang>>();
 
-    let maybe_code = codes
+    codes
         .last_entry()
-        .map(|ent| whatlang_to_iso639(ent.get()).to_string());
-    maybe_code
+        .map(|ent| whatlang_to_iso639(ent.get()).to_string())
 }
 
-fn read_i18n_entries_from_toml(file_path: PathBuf) -> Result<HashSet<I18nEntry>> {
+fn entries_from_pairs(
+    path: &Path,
+    pairs: Vec<(String, String)>,
+) -> Result<BTreeMap<String, I18nEntry>> {
+    let mut map: BTreeMap<String, I18nEntry> = BTreeMap::new();
+    for (key, value) in pairs {
+        if let Some(prev) = map.get(&key) {
+            if prev.value.i18n_content != value {
+                bail!(
+                    "duplicate i18n key `{key}` with conflicting values in {}",
+                    path.display()
+                );
+            }
+            continue;
+        }
+        map.insert(
+            key.clone(),
+            I18nEntry {
+                key,
+                value: FormatContent {
+                    i18n_content: value,
+                },
+            },
+        );
+    }
+    Ok(map)
+}
+
+fn read_i18n_entries_from_toml(file_path: PathBuf) -> Result<BTreeMap<String, I18nEntry>> {
     let mut file = std::fs::OpenOptions::new().read(true).open(&file_path)?;
     let mut entries_str = String::new();
 
     fn fold_table(prev_key: &str, table: &toml::Table) -> Vec<(String, String)> {
-        let entries = table
+        table
             .iter()
             .filter_map(|(key, value)| {
                 let new_key = if !prev_key.is_empty() {
@@ -220,8 +250,7 @@ fn read_i18n_entries_from_toml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
                     key.to_string()
                 };
                 if let Some(table) = value.as_table() {
-                    let entries = fold_table(&new_key, table);
-                    Some(entries)
+                    Some(fold_table(&new_key, table))
                 } else if let Some(value) = value.as_str() {
                     Some(vec![(new_key, value.to_string())])
                 } else {
@@ -229,32 +258,21 @@ fn read_i18n_entries_from_toml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
                 }
             })
             .flatten()
-            .collect::<Vec<_>>();
-        entries
+            .collect()
     }
 
     file.read_to_string(&mut entries_str)?;
     let toml_table = toml::from_str::<Table>(&entries_str)?;
-    let entries = fold_table("", &toml_table)
-        .into_iter()
-        .map(|(key, value)| I18nEntry {
-            key,
-            value: FormatContent {
-                i18n_content: value.to_string(),
-            },
-        })
-        .collect::<HashSet<_>>();
-
-    Ok(entries)
+    entries_from_pairs(&file_path, fold_table("", &toml_table))
 }
 
-fn read_i18n_entries_from_json(file_path: PathBuf) -> Result<HashSet<I18nEntry>> {
+fn read_i18n_entries_from_json(file_path: PathBuf) -> Result<BTreeMap<String, I18nEntry>> {
     let mut file = std::fs::OpenOptions::new().read(true).open(&file_path)?;
     let mut entries_str = String::new();
     file.read_to_string(&mut entries_str)?;
 
     fn fold_json_map(prev_key: &str, object: &Map<String, Value>) -> Vec<(String, String)> {
-        let entries = object
+        object
             .iter()
             .filter_map(|(key, value)| {
                 let new_key = if !prev_key.is_empty() {
@@ -263,8 +281,7 @@ fn read_i18n_entries_from_json(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
                     key.to_string()
                 };
                 if let Some(table) = value.as_object() {
-                    let entries = fold_json_map(&new_key, table);
-                    Some(entries)
+                    Some(fold_json_map(&new_key, table))
                 } else if let Some(value) = value.as_str() {
                     Some(vec![(new_key, value.to_string())])
                 } else {
@@ -272,47 +289,30 @@ fn read_i18n_entries_from_json(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
                 }
             })
             .flatten()
-            .collect::<Vec<_>>();
-        entries
+            .collect()
     }
 
-    let mut entries = Default::default();
     let json_entries = serde_json::from_str::<Value>(&entries_str)?;
-    if let Some(object) = json_entries.as_object() {
-        entries = fold_json_map("", object)
-            .into_iter()
-            .map(|(key, value)| I18nEntry {
-                key,
-                value: FormatContent {
-                    i18n_content: value.to_string(),
-                },
-            })
-            .collect::<HashSet<_>>();
-    }
-    Ok(entries)
+    let pairs = json_entries
+        .as_object()
+        .map(|object| fold_json_map("", object))
+        .unwrap_or_default();
+    entries_from_pairs(&file_path, pairs)
 }
 
-fn read_i18n_entries_from_properties(file_path: PathBuf) -> Result<HashSet<I18nEntry>> {
+fn read_i18n_entries_from_properties(file_path: PathBuf) -> Result<BTreeMap<String, I18nEntry>> {
     let file = std::fs::OpenOptions::new().read(true).open(&file_path)?;
     let map = java_properties::read(file)?;
-    let entries = map
-        .into_iter()
-        .map(|(key, value)| I18nEntry {
-            key,
-            value: FormatContent {
-                i18n_content: value,
-            },
-        })
-        .collect::<HashSet<_>>();
-    Ok(entries)
+    let pairs = map.into_iter().collect::<Vec<_>>();
+    entries_from_pairs(&file_path, pairs)
 }
 
-fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>> {
+fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<BTreeMap<String, I18nEntry>> {
     let file = std::fs::OpenOptions::new().read(true).open(&file_path)?;
     let mut f = yaml::YamlDecoder::read(file);
 
     fn fold_yaml_map(prev_key: &str, object: &LinkedHashMap<Yaml, Yaml>) -> Vec<(String, String)> {
-        let entries = object
+        object
             .iter()
             .filter_map(|(key, value)| {
                 let new_key = if !prev_key.is_empty() {
@@ -322,8 +322,7 @@ fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
                     key.as_str()?.to_string()
                 };
                 if let Some(table) = value.as_hash() {
-                    let entries = fold_yaml_map(&new_key, table);
-                    Some(entries)
+                    Some(fold_yaml_map(&new_key, table))
                 } else if let Some(value) = value.as_str() {
                     Some(vec![(new_key, value.to_string())])
                 } else {
@@ -331,31 +330,21 @@ fn read_i18n_entries_from_yaml(file_path: PathBuf) -> Result<HashSet<I18nEntry>>
                 }
             })
             .flatten()
-            .collect::<Vec<_>>();
-        entries
+            .collect()
     }
 
     let yaml = f
         .decode()
         .map_err(|e| anyhow::anyhow!("failed to decode yaml file {file_path:?}: {e:?}"))?;
-    let entries = yaml
+    let pairs = yaml
         .into_iter()
         .filter_map(|v| {
             let v = v.as_hash()?;
-            let entries = fold_yaml_map("", v)
-                .into_iter()
-                .map(|(key, value)| I18nEntry {
-                    key,
-                    value: FormatContent {
-                        i18n_content: value.to_string(),
-                    },
-                })
-                .collect::<HashSet<_>>();
-            Some(entries)
+            Some(fold_yaml_map("", v))
         })
         .flatten()
-        .collect::<HashSet<_>>();
-    Ok(entries)
+        .collect::<Vec<_>>();
+    entries_from_pairs(&file_path, pairs)
 }
 
 #[cfg(test)]
@@ -412,5 +401,35 @@ count = "999"
             .expect_err("undetectable language should fail the run when nothing loads");
         assert!(err.to_string().contains("no i18n entries were loaded"));
         assert_eq!(loaded, 0);
+    }
+
+    #[rstest]
+    #[test_log::test]
+    fn test_duplicate_key_with_conflict_fails() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("i18n_en.toml");
+        // Same dotted key reachable twice with different values via nesting vs flat
+        // is hard in toml; use properties-style duplicates via a crafted fold input
+        // by writing invalid-for-unique json object... JSON can't duplicate keys.
+        // Use entries_from_pairs directly.
+        let err = entries_from_pairs(
+            path.as_path(),
+            vec![("a.b".into(), "one".into()), ("a.b".into(), "two".into())],
+        )
+        .expect_err("conflicting duplicate key should fail");
+        assert!(err.to_string().contains("duplicate i18n key"));
+    }
+
+    #[rstest]
+    #[test_log::test]
+    fn test_duplicate_key_same_value_ok() {
+        let path = PathBuf::from("virtual.toml");
+        let map = entries_from_pairs(
+            &path,
+            vec![("a.b".into(), "same".into()), ("a.b".into(), "same".into())],
+        )
+        .expect("identical duplicates should be accepted");
+        assert_eq!(map.len(), 1);
+        assert_eq!(map["a.b"].value.i18n_content, "same");
     }
 }
