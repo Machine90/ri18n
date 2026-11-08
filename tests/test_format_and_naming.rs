@@ -1,5 +1,6 @@
 use ri18n::polyglot::common::{
-    FormatContent, Naming, java_matcher, rust_matcher, to_camelcase, to_constant, to_snake_case,
+    FormatContent, Naming, java_matcher, python_matcher, rust_matcher, to_camelcase, to_constant,
+    to_snake_case,
 };
 use rstest::rstest;
 
@@ -33,6 +34,19 @@ fn test_format_convert_rust(#[case] input: &str, #[case] expected: &str) {
         i18n_content: input.to_string(),
     };
     assert_eq!(fmt.replace(rust_matcher), expected);
+}
+
+#[rstest]
+#[test_log::test]
+#[case::aliases(
+    "name={text} age={integer} weight={double} ok={boolean}",
+    "name={} age={} weight={} ok={}"
+)]
+fn test_format_convert_python(#[case] input: &str, #[case] expected: &str) {
+    let fmt = FormatContent {
+        i18n_content: input.to_string(),
+    };
+    assert_eq!(fmt.replace(python_matcher), expected);
 }
 
 #[rstest]

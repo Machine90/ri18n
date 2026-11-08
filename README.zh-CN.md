@@ -4,12 +4,12 @@
 
 **Ri18n** 把 i18n 资源文件生成成目标语言的类型化源码。
 
-你用 JSON / YAML / TOML / `.properties` 维护翻译；Ri18n 输出一份 Java、Rust 或 TypeScript 文件，内含常量、支持语言列表，以及 `translate(locale, key)` 查表 API——调用方用编译期常量 key，而不是散落的裸字符串。
+你用 JSON / YAML / TOML / `.properties` 维护翻译；Ri18n 输出一份 Java、Rust、TypeScript 或 Python 文件，内含常量、支持语言列表，以及 `translate(locale, key)` 查表 API——调用方用编译期常量 key，而不是散落的裸字符串。
 
 | | |
 |---|---|
 | **输入** | `.json` · `.yaml` / `.yml` · `.toml` · `.properties` |
-| **目标语言** | Java · Rust · TypeScript |
+| **目标语言** | Java · Rust · TypeScript · Python |
 | **版本** | 0.2.0 |
 
 ---
@@ -29,11 +29,14 @@ ri18n -s path/to/i18n -t out/ -n ri18n rust --formatx-enable
 # TypeScript
 ri18n -s path/to/i18n -t out/ -n Ri18n typescript
 
+# Python
+ri18n -s path/to/i18n -t out/ -n ri18n python
+
 # 仅生成常量与支持语言列表
 ri18n -s path/to/i18n -t out/ -n Ri18nConstantsOnly -c java
 ```
 
-`-n` / `--name` 会**原样**用作类型名与文件名（例如 Java → `Ri18n.java`，Rust → `ri18n.rs`，TypeScript → `Ri18n.ts`）。请按目标语言命名规范自行选择（如 Java 用 `Ri18nConstantsOnly`）。
+`-n` / `--name` 会**原样**用作类型名与文件名（例如 Java → `Ri18n.java`，Rust → `ri18n.rs`，TypeScript → `Ri18n.ts`，Python → `ri18n.py`）。请按目标语言命名规范自行选择（如 Java 用 `Ri18nConstantsOnly`）。
 
 ---
 
@@ -46,7 +49,7 @@ ri18n -s path/to/i18n -t out/ -n Ri18nConstantsOnly -c java
 | `-n`, `--name` | 生成类型 / 文件名主干（默认 `Ri18n`） |
 | `-p`, `--package` | 可选包 / 模块路径：`com.a.b`、`com/a/b` 或 `com::a::b` |
 | `-c`, `--constants-only` | 只生成常量与支持语言列表（不含 `translate` API） |
-| 子命令 | `java` · `rust [--formatx-enable]` · `typescript` |
+| 子命令 | `java` · `rust [--formatx-enable]` · `typescript` · `python` |
 
 长选项同名环境变量也可传入（clap `env`）。
 
@@ -88,7 +91,7 @@ animal:
 | `SupportLanguage` + 语言列表 | 枚举 / 校验当前是否支持某语言 |
 | `Iso639Codes` / `keys` 常量 | 类型化的语言码与翻译 key |
 | `translate(locale, key)` | 按语言与 key 查字符串 / 模板 |
-| 带参变体 | Java / TypeScript：`translateWithArgs(...)` · Rust：`translate_with_args!`（需 `--formatx-enable` 且依赖 [`formatx`](https://crates.io/crates/formatx)） |
+| 带参变体 | Java / TypeScript：`translateWithArgs(...)` · Python：`translate_with_args(...)` · Rust：`translate_with_args!`（需 `--formatx-enable` 且依赖 [`formatx`](https://crates.io/crates/formatx)） |
 
 ### 占位符
 
@@ -103,7 +106,7 @@ animal:
 | `{c}` `{char}` | 字符 |
 | `{hex}` `{exp}` | 十六进制 / 科学计数 |
 
-Java → `String.formatted` 风格（`%s`、`%d` 等）。TypeScript → 运行时 `formatTemplate`。Rust + formatx → `{}`。
+Java → `String.formatted` 风格（`%s`、`%d` 等）。TypeScript → 运行时 `formatTemplate`。Python → `str.format`（`{}`）。Rust + formatx → `{}`。
 
 ---
 

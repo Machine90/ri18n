@@ -22,6 +22,7 @@ use crate::{
             used_types::{Construct, Types},
         },
         java::JavaCodeGen,
+        python::PythonCodeGen,
         rust::RustCodeGen,
         typescript::TypeScriptCodeGen,
     },
@@ -134,6 +135,10 @@ impl I18nCodeGen {
             generator: generator.clone(),
         });
         generators.insert(TargetKind::Typescript, typescript_codegen);
+        let python_codegen: Box<dyn IntoCode> = Box::new(PythonCodeGen {
+            generator: generator.clone(),
+        });
+        generators.insert(TargetKind::Python, python_codegen);
         Ok(Self { generators })
     }
 
@@ -142,6 +147,7 @@ impl I18nCodeGen {
             Target::Java => TargetKind::Java,
             Target::Rust { .. } => TargetKind::Rust,
             Target::Typescript => TargetKind::Typescript,
+            Target::Python => TargetKind::Python,
         };
         self.generators
             .get(&kind)

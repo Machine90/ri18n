@@ -48,6 +48,7 @@ fn run() -> Result<()> {
         Target::Java => format!("{}.java", args.name),
         Target::Rust { .. } => format!("{}.rs", args.name),
         Target::Typescript => format!("{}.ts", args.name),
+        Target::Python => format!("{}.py", args.name),
     };
     let mut save_to = args.target_dir;
     if save_to.is_file() {

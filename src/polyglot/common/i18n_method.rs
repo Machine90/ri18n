@@ -24,6 +24,7 @@ pub enum I18nMethodType {
     /// IR method name is always `translate_with_args` (distinct from plain lookup).
     /// Backend strategies:
     /// - Java: emit a real static method with `Object... args`
+    /// - TypeScript / Python: emit a function that formats `{}` placeholders
     /// - Rust: emit `translate_with_args!` macro when formatx is enabled; otherwise omit
     TranslateWithArgs {
         fn_name_translate: Naming,

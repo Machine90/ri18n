@@ -116,6 +116,19 @@ pub fn typescript_matcher(fmt: Format) -> &'static str {
     }
 }
 
+/// Python templates use `{}` placeholders; `translate_with_args` formats them via `str.format`.
+pub fn python_matcher(fmt: Format) -> &'static str {
+    match fmt {
+        Format::String
+        | Format::Int32
+        | Format::Float
+        | Format::Char
+        | Format::Bool
+        | Format::Hex
+        | Format::Exponent => "{}",
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Naming {
     pub name: String,

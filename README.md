@@ -4,12 +4,12 @@
 
 **Ri18n** turns i18n resource files into typed source code for your app.
 
-You keep translations in JSON / YAML / TOML / `.properties`. Ri18n emits a single Java, Rust, or TypeScript file with constants, a supported-language list, and `translate(locale, key)` lookup — so call sites use compile-time keys instead of raw strings.
+You keep translations in JSON / YAML / TOML / `.properties`. Ri18n emits a single Java, Rust, TypeScript, or Python file with constants, a supported-language list, and `translate(locale, key)` lookup — so call sites use compile-time keys instead of raw strings.
 
 | | |
 |---|---|
 | **Inputs** | `.json` · `.yaml` / `.yml` · `.toml` · `.properties` |
-| **Targets** | Java · Rust · TypeScript |
+| **Targets** | Java · Rust · TypeScript · Python |
 | **Version** | 0.2.0 |
 
 ---
@@ -29,11 +29,14 @@ ri18n -s path/to/i18n -t out/ -n ri18n rust --formatx-enable
 # TypeScript
 ri18n -s path/to/i18n -t out/ -n Ri18n typescript
 
+# Python
+ri18n -s path/to/i18n -t out/ -n ri18n python
+
 # Constants / language list only
 ri18n -s path/to/i18n -t out/ -n Ri18nConstantsOnly -c java
 ```
 
-`-n` / `--name` is used **as-is** for the type name and file stem (e.g. Java → `Ri18n.java`, Rust → `ri18n.rs`, TypeScript → `Ri18n.ts`). Choose a name that matches the target language’s conventions yourself.
+`-n` / `--name` is used **as-is** for the type name and file stem (e.g. Java → `Ri18n.java`, Rust → `ri18n.rs`, TypeScript → `Ri18n.ts`, Python → `ri18n.py`). Choose a name that matches the target language’s conventions yourself.
 
 ---
 
@@ -46,7 +49,7 @@ ri18n -s path/to/i18n -t out/ -n Ri18nConstantsOnly -c java
 | `-n`, `--name` | Generated type / file stem (default: `Ri18n`) |
 | `-p`, `--package` | Optional package / module path: `com.a.b`, `com/a/b`, or `com::a::b` |
 | `-c`, `--constants-only` | Emit constants and support-language list only (no `translate` APIs) |
-| subcommand | `java` · `rust [--formatx-enable]` · `typescript` |
+| subcommand | `java` · `rust [--formatx-enable]` · `typescript` · `python` |
 
 Environment variables with the same names as long flags are also accepted (via clap `env`).
 
@@ -88,7 +91,7 @@ Typical output includes:
 | `SupportLanguage` + language list | Enumerate / validate supported locales |
 | `Iso639Codes` / `keys` constants | Typed locale codes and translation keys |
 | `translate(locale, key)` | Lookup template / string |
-| Formatted variant | Java / TypeScript: `translateWithArgs(...)` · Rust: `translate_with_args!` (needs `--formatx-enable` + [`formatx`](https://crates.io/crates/formatx)) |
+| Formatted variant | Java / TypeScript: `translateWithArgs(...)` · Python: `translate_with_args(...)` · Rust: `translate_with_args!` (needs `--formatx-enable` + [`formatx`](https://crates.io/crates/formatx)) |
 
 ### Placeholders
 
@@ -103,7 +106,7 @@ Values may use typed placeholders; Ri18n rewrites them per target:
 | `{c}` `{char}` | char |
 | `{hex}` `{exp}` | hex / exponent |
 
-Java → `String.formatted` style (`%s`, `%d`, …). TypeScript → runtime `formatTemplate`. Rust + formatx → `{}`.
+Java → `String.formatted` style (`%s`, `%d`, …). TypeScript → runtime `formatTemplate`. Python → `str.format` with `{}`. Rust + formatx → `{}`.
 
 ---
 

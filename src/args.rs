@@ -17,6 +17,8 @@ pub enum Target {
     },
     /// Emit a TypeScript module (`.ts`) with `translate` / `translateWithArgs`.
     Typescript,
+    /// Emit a Python module (`.py`) with `translate` / `translate_with_args`.
+    Python,
 }
 
 #[derive(Debug, Parser)]

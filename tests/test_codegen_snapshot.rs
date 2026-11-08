@@ -80,6 +80,22 @@ fn generate(target: Target, package: Option<&str>, name: &str, constants_only: b
     "ri18nConstantsOnly.ts",
     false
 )]
+#[case::python_full(
+    Target::Python,
+    Some("com.example.ri18n"),
+    "ri18n",
+    false,
+    "ri18n.py",
+    true
+)]
+#[case::python_constants_only(
+    Target::Python,
+    None,
+    "ri18n_constants_only",
+    true,
+    "ri18n_constants_only.py",
+    false
+)]
 fn test_codegen_matches_golden(
     #[case] target: Target,
     #[case] package: Option<&str>,
@@ -121,6 +137,12 @@ fn test_codegen_matches_golden(
                 code.contains("function translateWithArgs("),
                 expect_lookup_api
             );
+        }
+        Target::Python => {
+            assert!(code.contains("class Iso639Codes:"));
+            assert!(code.contains("class Keys:"));
+            assert_eq!(code.contains("def translate("), expect_lookup_api);
+            assert_eq!(code.contains("def translate_with_args("), expect_lookup_api);
         }
     }
 }
